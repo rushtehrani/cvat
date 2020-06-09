@@ -10,7 +10,6 @@ import { createModelAsync } from 'actions/models-actions';
 import {
     ModelFiles,
     CombinedState,
-    CsvModelFiles
 } from 'reducers/interfaces';
 
 interface StateToProps {
@@ -33,7 +32,7 @@ function mapStateToProps(state: CombinedState): StateToProps {
 
 function mapDispatchToProps(dispatch: any): DispatchToProps {
     return {
-        createModel(name: string, files: ModelFiles | CsvModelFiles, global: boolean): void {
+        createModel(name: string, files: ModelFiles, global: boolean): void {
             dispatch(createModelAsync(name, files, global));
         },
     };

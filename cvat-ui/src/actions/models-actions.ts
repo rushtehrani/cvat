@@ -9,7 +9,6 @@ import {
     ModelFiles,
     ActiveInference,
     CombinedState,
-    CsvModelFiles
 } from 'reducers/interfaces';
 import getCore from 'cvat-core-wrapper';
 
@@ -154,7 +153,7 @@ export function getModelsAsync(): ThunkAction {
 
             if (RCNN) {
                 models.push({
-                    id: 989898,
+                    id: null,
                     ownerID: null,
                     primary: true,
                     name: PreinstalledModels.RCNN,
@@ -179,13 +178,12 @@ export function getModelsAsync(): ThunkAction {
                         'airplane', 'hair_drier', 'hot_dog', 'remote',
                         'sink', 'dog', 'bird', 'giraffe', 'chair',
                     ],
-                    framework: "tensorflow",
                 });
             }
 
             if (MaskRCNN) {
                 models.push({
-                    id: 989898,
+                    id: null,
                     ownerID: null,
                     primary: true,
                     name: PreinstalledModels.MaskRCNN,
@@ -207,7 +205,6 @@ export function getModelsAsync(): ThunkAction {
                         'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors',
                         'teddy bear', 'hair drier', 'toothbrush',
                     ],
-                    framework: "tensorflow",
                 });
             }
         } catch (error) {
@@ -234,7 +231,7 @@ export function deleteModelAsync(id: number): ThunkAction {
     };
 }
 
-export function createModelAsync(name: string, files: ModelFiles | CsvModelFiles, global: boolean): ThunkAction {
+export function createModelAsync(name: string, files: ModelFiles, global: boolean): ThunkAction {
     return async (dispatch): Promise<void> => {
         async function checkCallback(id: string): Promise<void> {
             try {
@@ -488,46 +485,12 @@ export function startInferenceAsync(
     return async (dispatch): Promise<void> => {
         try {
             if (model.name === PreinstalledModels.RCNN) {
-                // var unique_no = 9999
                 await core.server.request(
-                    `${baseURL}/tensorflow/annotation/create/task/${taskInstance.id}/${model.id}`,{
-                        method: 'POST',
-                        data: JSON.stringify({
-                            reset: cleanOut,
-                            labels:mapping,
-                        })
-                    }
+                    `${baseURL}/tensorflow/annotation/create/task/${taskInstance.id}`,
                 );
             } else if (model.name === PreinstalledModels.MaskRCNN) {
-                // const unique_no = 9999
                 await core.server.request(
-                    `${baseURL}/tensorflow/segmentation/create/task/${taskInstance.id}/${model.id}`,{
-                        method: 'POST',
-                        data: JSON.stringify({
-                            reset: cleanOut,
-                            labels:mapping,
-                        })
-                    }
-                );
-            }else  if (model.framework === "tensorflow") {
-                await core.server.request(
-                    `${baseURL}/tensorflow/annotation/create/task/${taskInstance.id}/${model.id}`,{
-                        method: 'POST',
-                        data: JSON.stringify({
-                            reset: cleanOut,
-                            labels: mapping,
-                        })
-                    }
-                );
-            } else if (model.framework === "maskrcnn") {
-                await core.server.request(
-                    `${baseURL}/tensorflow/segmentation/create/task/${taskInstance.id}/${model.id}`,{
-                        method: 'POST',
-                        data: JSON.stringify({
-                            reset: cleanOut,
-                            labels: mapping,
-                        })
-                    }
+                    `${baseURL}/tensorflow/segmentation/create/task/${taskInstance.id}`,
                 );
             } else {
                 await core.server.request(
