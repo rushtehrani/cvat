@@ -56,24 +56,11 @@ def create_model(request):
         if is_shared and not has_admin_role(request.user):
             raise Exception("Only admin can create shared models")
 
-        is_custom = "openvino"
-        if "pb" in files:
-            labelmap = files["csv"]
-            model = files["pb"]
-            weights = None
-            interpretation_script = None
-            is_custom="tensorflow"
-        elif "h5" in files:
-            labelmap = files["csv"]
-            model = files["h5"]
-            weights = None
-            interpretation_script = None
-            is_custom = "maskrcnn"
-        else:
-            model = files["xml"]
-            weights = files["bin"]
-            labelmap = files["json"]
-            interpretation_script = files["py"]
+        files = request.FILES if storage == "local" else params
+        model = files["xml"]
+        weights = files["bin"]
+        labelmap = files["json"]
+        interpretation_script = files["py"]
         owner = request.user
 
         rq_id = model_manager.create_or_update(
@@ -86,7 +73,6 @@ def create_model(request):
             owner=owner,
             storage=storage,
             is_shared=is_shared,
-            is_custom=is_custom
         )
 
         return JsonResponse({"id": rq_id})
@@ -109,25 +95,10 @@ def update_model(request, mid):
         if is_shared and not has_admin_role(request.user):
             raise Exception("Only admin can create shared models")
         files = request.FILES
-        is_custom="openvino"
-        if "pb" in files:
-            labelmap = files.get("csv")
-            model = files.get("pb")
-            weights = None
-            interpretation_script = None
-            is_custom="tensorflow"
-        elif "h5" in files:
-            labelmap = files.get("csv")
-            model = files.get("h5")
-            weights = None
-            interpretation_script = None
-            is_custom="maskrcnn"
-        else:
-
-            model = files.get("xml")
-            weights = files.get("bin")
-            labelmap = files.get("json")
-            interpretation_script = files.get("py")
+        model = files.get("xml")
+        weights = files.get("bin")
+        labelmap = files.get("json")
+        interpretation_script = files.get("py")
 
         rq_id = model_manager.create_or_update(
             dl_model_id=mid,
@@ -139,7 +110,6 @@ def update_model(request, mid):
             owner=None,
             storage=storage,
             is_shared=is_shared,
-            is_custom=is_custom
         )
 
         return JsonResponse({"id": rq_id})
@@ -169,12 +139,8 @@ def get_meta_info(request):
         for dl_model in dl_model_list:
             labels = []
             if dl_model.labelmap_file and os.path.exists(dl_model.labelmap_file.name):
-                if dl_model.framework == "tensorflow" or dl_model.framework == "maskrcnn":
-                    with open(dl_model.labelmap_file.name,"r") as f:
-                        labels = [label.strip("\n").strip("").split(",")[0] for label in f.readlines() if "labels" not in label]
-                else:
-                    with dl_model.labelmap_file.open('r') as f:
-                        labels = list(json.load(f)["label_map"].values())
+                with dl_model.labelmap_file.open('r') as f:
+                    labels = list(json.load(f)["label_map"].values())
 
             response["models"].append({
                 "id": dl_model.id,
@@ -184,7 +150,6 @@ def get_meta_info(request):
                 "updateDate": dl_model.updated_date,
                 "labels": labels,
                 "owner": dl_model.owner.id,
-                 "framework":dl_model.framework,
             })
 
         queue = django_rq.get_queue("low")
