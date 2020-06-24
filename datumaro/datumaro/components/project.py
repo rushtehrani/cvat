@@ -345,8 +345,22 @@ class Dataset(Extractor):
         self._categories = categories
 
     def __iter__(self):
-        for subset in self._subsets.values():
-            for item in subset:
+        config = self.config
+        env = self.env
+        for source_name, source in self._sources.items():
+            log.debug("Loading '%s' source contents..." % source_name)
+            for item in source:
+                s_config = config.sources[source_name]
+                if s_config and \
+                        s_config.format != env.PROJECT_EXTRACTOR_NAME:
+                    # NOTE: consider imported sources as our own dataset
+                    path = None
+                else:
+                    path = item.path
+                    if path is None:
+                        path = []
+                    path = [source_name] + path
+                item = item.wrap(path=path, annotations=item.annotations)
                 yield item
 
     def __len__(self):
