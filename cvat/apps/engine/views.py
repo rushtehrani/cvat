@@ -758,7 +758,7 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 			params.append(Parameter(name="tf-image", value=tf_image))
 			params.append(Parameter(name="sys-node-pool", value=machine))
 			if 'TFRecord' in form_data['dump_format']:
-				if form_data['base_model'] and "tfod" in form_data['base_model']:
+				if "base_model" in form_data and "tfod" in form_data['base_model']:
 					ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
 				else:
 					ref_model_path = "base-models/"+form_data['ref_model']
@@ -770,7 +770,7 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 				body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
 				workflow_template_uid = os.getenv('ONEPANEL_OD_TEMPLATE_ID')) 
 			else:
-				if form_data['base_model'] and "maskrcnn" in form_data['base_model']:
+				if "base_model" in form_data and "maskrcnn" in form_data['base_model']:
 					ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
 				else:
 					ref_model_path = "base-models/maskrcnn"
