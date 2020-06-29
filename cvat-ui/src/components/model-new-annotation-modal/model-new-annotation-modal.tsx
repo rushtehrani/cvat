@@ -12,7 +12,8 @@ import {
     Select,
     notification,
     Input,
-    Button
+    Button,
+    Spin
 } from 'antd';
 
 const {TextArea} = Input;
@@ -42,6 +43,7 @@ interface State {
     };
     argumentS: string;
     selectedBaseModel: string;
+    executingAnnotation: boolean;
 }
 
 interface CreateAnnotationSubmitData {
@@ -103,6 +105,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             machineType: machines[0],
             argumentS: '',
             selectedBaseModel: '',
+            executingAnnotation: false,
         };
     }
 
@@ -120,11 +123,12 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 showModelsOptions: false,
                 argumentS: '',
                 selectedBaseModel: '',
+                executingAnnotation: false,
             });
         }
     }
 
-    private async createNewAnnotation(): Promise<Boolean> {
+    private async onCreateNewAnnotation(): Promise<Boolean> {
         const {
             taskInstance,
             closeDialog,
@@ -140,6 +144,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             selectedBaseModel,
         } = this.state;
 
+        this.setState({
+            executingAnnotation: true,
+        });
+
         const baseUrl: string = core.config.backendAPI.slice(0, -7);
         let formData: CreateAnnotationSubmitData = {
             project_uid: taskInstance.id,
@@ -151,7 +159,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             base_model: selectedBaseModel,
         }
         
-        console.log(formData);
         // try {
         //     let resp = await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/dataset?format=cvat_coco`, {
         //         method: 'GET',
@@ -170,7 +177,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         //     });
 
         try {
-            let resp = await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/create_annotation_model`, {
+            await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/create_annotation_model`, {
                 method: 'POST',
                 data: formData,
                 // form: formData,
@@ -178,7 +185,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     'Content-Type': 'application/json',
                 },
             })
-            console.log(resp);
+            notification.info({
+                message: 'Create new annotation',
+                description: `${selectedModelType} workflow has been executed. Please check the workflow for logs.`,
+            });
         } catch (error) {
             notification.error({
                 message: 'Create New Annotation failed.',
@@ -212,7 +222,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     type="primary"
                     size="small"
                     onClick={() => {
-                        this.createNewAnnotation();
+                        this.onCreateNewAnnotation();
                         notification.close(key);
                     }}
                 >
@@ -239,7 +249,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 key,
             });
         } else {
-            this.createNewAnnotation();
+            this.onCreateNewAnnotation();
         }
         return true;
     }
@@ -268,7 +278,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         } = resp;
 
         if(tracks.length) {
-            this.createNewAnnotation();
+            this.onCreateNewAnnotation();
             return true;
         }
 
@@ -458,32 +468,56 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         );
     }
 
+    private footerComponent(): JSX.Element[] {
+        const  {
+            closeDialog,
+        } = this.props;
+
+        let footerElements = [];
+        if(this.state.executingAnnotation) {
+            footerElements.push(
+                <span key={"message"} style={{float: 'left', paddingTop: '5px', color: '#1890ff',}}>
+                    <Spin /> &nbsp; &nbsp;
+                    {`Executing ${this.state.selectedModelType} workflow...`}
+                </span>
+            )
+        }
+        const footerButtons = [
+            <Button key="back" onClick={(): void => {
+                this.setState({
+                    selectedModelType: '',
+                    selectedModel: models[0].label,
+                    machineType: machines[0],
+                    showModelsOptions: false,
+                    argumentS: ''
+                });
+                closeDialog();
+            }}>
+                Cancel
+            </Button>,
+            <Button key="submit" type="primary" disabled={!!!this.state.selectedModelType} onClick={(): void => {
+                this.handleSubmit();
+            }}>
+              Submit
+            </Button>,
+        ]
+        return footerElements = [
+            ...footerElements,
+            ...footerButtons
+        ]
+        
+    }
+
     public render(): JSX.Element | false {
         const {
             visible,
-            closeDialog,
         } = this.props;
 
         return (
             visible && (
                 <Modal
                     closable={false}
-                    okType='primary'
-                    okText='Submit'
-                    onOk={(): void => {
-                        this.handleSubmit();
-                    }}
-                    onCancel={(): void => {
-                        this.setState({
-                            selectedModelType: '',
-                            selectedModel: models[0].label,
-                            machineType: machines[0],
-                            showModelsOptions: false,
-                            argumentS: ''
-                        });
-                        closeDialog();
-                    }}
-                    okButtonProps={{ disabled: !!!this.state.selectedModelType }}
+                    footer={this.footerComponent()}
                     title='Create new annotation'
                     visible
                     width="50%"

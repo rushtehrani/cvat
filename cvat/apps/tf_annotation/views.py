@@ -533,7 +533,7 @@ def check(request, tid):
 	try:
 		queue = django_rq.get_queue('low')
 		job = queue.fetch_job('tf_annotation.create/{}'.format(tid))
-		slogger.glob.info("job in check {}  {}  {}  {}".format(job, job.meta, job.is_queued, job.is_finished))
+		#slogger.glob.info("job in check {}  {}  {}  {}".format(job, job.meta, job.is_queued, job.is_finished))
 		# jobold = queue.fetch_job('tf_annotation.createold/{}'.format(tid))
 		if job is not None and 'cancel' in job.meta:
 			return JsonResponse({'status':'finished'})
