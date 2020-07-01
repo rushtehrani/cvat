@@ -27,7 +27,7 @@ services:
       args:
         ELK_VERSION: 6.4.0
     environment:
-      ELASTICSEARCH_HOSTS: http://localhost:9200
+      ELASTICSEARCH_URL: http://localhost:9200
     depends_on: ['cvat_elasticsearch']
     restart: always
 

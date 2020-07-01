@@ -761,7 +761,7 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 				if "base_model" in form_data and "tfod" in form_data['base_model']:
 					ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
 				else:
-					ref_model_path = "base-models/"+form_data['ref_model']
+					ref_model_path = ""
 				slogger.glob.info("TF ref model path {}".format(ref_model_path))
 				params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_tfod_"+form_data['ref_model']+'_'+stamp+'/'))
 				params.append(Parameter(name='ref-model-path', value=ref_model_path))
@@ -773,7 +773,7 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 				if "base_model" in form_data and "maskrcnn" in form_data['base_model']:
 					ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
 				else:
-					ref_model_path = "base-models/maskrcnn"
+					ref_model_path = ""
 				slogger.glob.info("maskrcnn ref model path {}".format(ref_model_path))
 				params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_maskrcnn_"+stamp+'/'))
 				params.append(Parameter(name='ref-model-path', value=ref_model_path))
