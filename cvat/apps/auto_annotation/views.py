@@ -50,7 +50,6 @@ def create_model(request):
 
     try:
         params = request.POST
-        print("model upload params", params)
         storage = params["storage"]
         name = params["name"]
         is_shared = params["shared"].lower() == "true"
@@ -58,10 +57,8 @@ def create_model(request):
             raise Exception("Only admin can create shared models")
 
         files = request.FILES if storage == "local" else params
-        print("uploading files", files)
         is_custom = "openvino"
         if "pb" in files:
-            print("pb is in the file")
             labelmap = files["csv"]
             model = files["pb"]
             weights = None
@@ -116,7 +113,6 @@ def update_model(request, mid):
         files = request.FILES
         is_custom="openvino"
         if "pb" in files:
-            print("pb is in the file")
             labelmap = files.get("csv")
             model = files.get("pb")
             weights = None
@@ -174,10 +170,6 @@ def get_meta_info(request):
         dl_model_list = list(AnnotationModel.objects.filter(Q(owner=request.user) | Q(primary=True) | Q(shared=True)).order_by('-created_date'))
         for dl_model in dl_model_list:
             labels = []
-            print(dl_model)
-            print(dl_model.id)
-            print(dl_model.name)
-            print(dl_model.framework)
             # print(dl_model.labelmap_file.name)
             if dl_model.labelmap_file and os.path.exists(dl_model.labelmap_file.name):
                 if dl_model.framework == "tensorflow" or dl_model.framework == "maskrcnn":

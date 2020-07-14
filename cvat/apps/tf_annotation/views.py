@@ -55,7 +55,6 @@ def run_tf_model(task_id_tf, model_path_tf, label_mapping_tf, threshold_tf,
 				xmax = int(box[3] * w)
 				ymax = int(box[2] * h)
 				return xmin, ymin, xmax, ymax
-		print("running run_infrence")
 		# from cvat.apps.engine.frame_provider import FrameProvider
 
 		# from cvat.apps.engine.models import Task as TaskModel
@@ -64,7 +63,6 @@ def run_tf_model(task_id_tf, model_path_tf, label_mapping_tf, threshold_tf,
 		path_to_task_data = os.path.join(DATA_ROOT,"data",task_id_tf,'raw')
 		image_list_all = image_list
 	
-		print("images list inside run inference", image_list_all)
 		start_of_image_list_tf = int(start_of_image_list_tf)
 		end_of_image_list_tf = int(end_of_image_list_tf)
 		detection_graph = tf.Graph()
@@ -163,11 +161,8 @@ def run_tensorflow_annotation(tid, image_list, labels_mapping, treshold, model_p
 	result = {}
 	local_device_protos = device_lib.list_local_devices()
 	num_gpus = len([x.name for x in local_device_protos if x.device_type == 'GPU'])
-	print("model path",model_path)
 	if "inference" in model_path:
-		print("inside")
 		model_path += ".pb"
-	print("final", model_path)
 	if not os.path.isfile(model_path):
 		raise OSError('TF Annotation Model path does not point to a file.')
 	# if not model_path.endswith("pb"):
@@ -397,13 +392,10 @@ def create_thread(tid, labels_mapping, user, tf_annotation_model_path, reset):
 def get_meta_info(request):
 	try:
 		queue = django_rq.get_queue('low')
-		# print(request.body)
-		# print(request.body.decode('utf-8'))
-		# tids = json.loads(request.body.decode('utf-8'))
+	
 		slogger.glob.info("tf get_meta request {} / ".format(request))
 		# slogger.glob.info("tf request body {}".format(request.body.decode('utf-8')))
 		tids = request.data
-		print("tids",tids)
 		result = {}
 		for tid in tids:
 			job = queue.fetch_job('tf_annotation.create/{}'.format(tid))
@@ -653,12 +645,9 @@ def tracking(request, tid):
 	reset= False
 	result = convert_to_cvat_format(result)
 	serializer = LabeledDataSerializer(data=result)
-	print("serializing tracked points")
-	print(serializer.is_valid(raise_exception=True))
 	if serializer.is_valid(raise_exception=True):
 		if reset:
 			put_task_data(tid, request.user, result)
 		else:
 			patch_task_data(tid, request.user, result, "create")
-	print("tracking done")
 	return HttpResponse()
