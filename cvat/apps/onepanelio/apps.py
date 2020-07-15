@@ -1,7 +1,6 @@
-# Copyright (C) 2018 Intel Corporation
+# Copyright (C) 2020 Onepanel Inc.
 #
 # SPDX-License-Identifier: MIT
-
 from django.apps import AppConfig
 
 
