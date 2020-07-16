@@ -610,18 +610,8 @@ def tracking(request, tid):
 	start_frame = tracking_job['startFrame']
 	# Until track this bounding box until this frame (excluded)
 	stop_frame = tracking_job['stopFrame']
-	# Track the bounding boxes in images from this track
-	# task = Job.objects.get(pk=job_id).segment.task
-	slogger.glob.info("task {}".format(task))
-	slogger.glob.info("temp task test")
-	# If we in a large task this creates unnessary many shapes
-	# We only need them between start_frame and stop_frame
-	# tracking_job['track']['attributes'] = []
-	# tracking_job['track']['shapes'][0]['attributes'] = []
-	# shapes_of_track = TrackManager([tracking_job['track']]).to_shapes(
-		# stop_frame)
-	# first_frame_in_track = shapes_of_track[0]['frame']
-	# slogger.glob.info("shapes of track {}".format(shapes_of_track))
+	
+	
 	def shape_to_db(tracked_shape_on_wire):
 		s = copy.copy(tracked_shape_on_wire)
 		s.pop('group', 0)
