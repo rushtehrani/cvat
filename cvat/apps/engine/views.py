@@ -78,6 +78,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 # send requests with ?format=openapi suffix instead of ?scheme=openapi.
 # We map the required paramater explicitly and add it into query arguments
 # on the server side.
+from ..onepanelio.models import AuthToken
+
+
 def wrap_swagger(view):
 	@login_required
 	def _map_format_to_schema(request, scheme=None):
@@ -733,12 +736,11 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 					for file in files:
 						print(os.path.join(root, file))
 						s3_client.upload_file(os.path.join(test_dir,"images",file),os.getenv('AWS_BUCKET_NAME'),os.path.join(aws_s3_prefix+dataset_name+"/images/", file))
-		
-			# print(os.listdir(test_dir))
+
 		#execute workflow
 		configuration = onepanel.core.api.Configuration()
 		# # Configure API key authorization: Bearer
-		configuration.api_key['authorization'] = os.getenv('ONEPANEL_AUTHORIZATION')
+		configuration.api_key['authorization'] = AuthToken.get_auth_token(request)
 		# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
 		configuration.api_key_prefix['authorization'] = 'Bearer'
 		# Defining host is optional and default to http://localhost:8888
