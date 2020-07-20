@@ -58,3 +58,7 @@ if apps.is_installed('cvat.apps.auto_segmentation'):
 
 if apps.is_installed('cvat.apps.tracking'):
     urlpatterns.append(path('tracking/', include('cvat.apps.tracking.urls')))
+
+# onepanelio
+if apps.is_installed('cvat.apps.onepanelio'):
+    urlpatterns.append(path('onepanelio/', include('cvat.apps.onepanelio.urls')))
