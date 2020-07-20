@@ -35,6 +35,8 @@ RUN apt-get update && \
         supervisor \
         ffmpeg \
         gstreamer0.10-ffmpeg \
+        libopencv-dev python-opencv \
+        vim \
         libavcodec-dev \
         libavdevice-dev \
         libavfilter-dev \
