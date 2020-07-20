@@ -4,6 +4,8 @@
 
 from __future__ import print_function
 
+import os
+
 from django.http import JsonResponse
 
 from cvat.apps.authentication.decorators import login_required
@@ -22,18 +24,18 @@ def get_workflow_templates(request):
     configuration.api_key_prefix['authorization'] = 'Bearer'
 
     # Defining host is optional and default to http://localhost:8888
-    configuration.host = "http://localhost:8888"
+    configuration.host = os.getenv('ONEPANEL_API_URL')
 
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
         api_instance = onepanel.core.api.WorkflowTemplateServiceApi(api_client)
-        namespace = 'namespace_example' # str |
+        namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')  # str |
     page_size = 100 # int |  (optional)
     page = 1 # int |  (optional)
     try:
         api_response = api_instance.list_workflow_templates(namespace, page_size=page_size, page=page)
         pprint(api_response)
-        return JsonResponse(api_response)
+        return JsonResponse(api_response.to_dict())
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
