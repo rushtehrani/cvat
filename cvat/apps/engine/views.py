@@ -614,8 +614,6 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 	def get_object_counts(self, request, pk):
 		# db_task = self.get_object()
 		data = annotation.get_task_data_custom(pk, request.user)
-		# data.init_from_db()
-		# slogger.glob.info("annotation data {}".format(data))
 		return Response(data)
 
 	@action(detail=True, methods=['POST'], serializer_class=None, url_path="get_base_model")
@@ -699,7 +697,7 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 			slogger.glob.info("AWS_BUCKET_NAME environment var does not exist. Please add ENV var with bucket name.")
 			return Response(data=msg, status=status.HTTP_400_BAD_REQUEST)
 
-		aws_s3_prefix = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/datasets/'
+		aws_s3_prefix = os.getenv('AWS_S3_PREFIX','datasets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/datasets/'
 		try:
 			s3_client.head_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=aws_s3_prefix)
 			# print("exists")
@@ -741,6 +739,8 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 		configuration = onepanel.core.api.Configuration()
 		# # Configure API key authorization: Bearer
 		configuration.api_key['authorization'] = AuthToken.get_auth_token(request)
+		# locally use env var
+		# configuration.api_key['authorization'] = os.getenv('ONEPANEL_AUTHORIZATION')
 		# Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
 		configuration.api_key_prefix['authorization'] = 'Bearer'
 		# Defining host is optional and default to http://localhost:8888
@@ -765,7 +765,7 @@ class TaskViewSet(auth.TaskGetQuerySetMixin, viewsets.ModelViewSet):
 				else:
 					ref_model_path = ""
 				slogger.glob.info("TF ref model path {}".format(ref_model_path))
-				params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_tfod_"+form_data['ref_model']+'_'+stamp+'/'))
+				params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX','datasets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_tfod_"+form_data['ref_model']+'_'+stamp+'/'))
 				params.append(Parameter(name='ref-model-path', value=ref_model_path))
 				params.append(Parameter(name='num-classes', value=str(num_classes)))
 				params.append(Parameter(name="ref-model", value=form_data['ref_model']))
