@@ -6,17 +6,14 @@ import React from 'react';
 import { connect } from 'react-redux';
 
 // import ModelRunnerModalComponent from 'components/model-runner-modal/model-runner-modal';
-import ModelNewAnnotationModalComponent from 'components/model-new-annotation-modal/model-new-annotation-modal';
+import ModelNewAnnotationModalComponent from './createAnnotaion.component';
 import {
-    Model,
     CombinedState,
 } from 'reducers/interfaces';
 import {
-    getModelsAsync,
-    startInferenceAsync,
-    modelsActions,
+    createAnnotationAction,
     getBaseModelsAsync,
-} from 'actions/models-actions';
+} from './createAnnotation.action';
 
 
 interface StateToProps {
@@ -43,7 +40,7 @@ function mapStateToProps(state: CombinedState): StateToProps {
 function mapDispatchToProps(dispatch: any): DispatchToProps {
     return ({
         closeDialog(): void {
-            dispatch(modelsActions.closeNewAnnotationDialog());
+            dispatch(createAnnotationAction.closeNewAnnotationDialog());
         },
         getBaseModelList(taskInstance, modelType): void {
             dispatch(getBaseModelsAsync(taskInstance, modelType));

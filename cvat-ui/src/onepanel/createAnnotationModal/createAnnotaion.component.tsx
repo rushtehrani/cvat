@@ -16,14 +16,10 @@ import {
     Spin
 } from 'antd';
 
-const {TextArea} = Input;
-import {TextAreaProps} from 'antd/lib/input'
+const { TextArea } = Input;
 
-import {
-    Model,
-    StringObject,
-} from 'reducers/interfaces';
 import getCore from 'cvat-core-wrapper';
+import { getMachineNames, getModelNames } from './createAnnotation.constant';
 
 interface Props {
     visible: boolean;
@@ -58,42 +54,9 @@ interface CreateAnnotationSubmitData {
 
 const core = getCore();
 
-const models = [
-    {
-        label: 'frcnn-nas-coco',
-    },
-    {
-        label: 'frcnn-res101-coco',
-    },
-    {
-        label: 'frcnn-res101-low',
-    },
-    {
-        label: 'frcnn-res50-coco',
-    },
-    {
-        label: 'ssd-mobilenet-v2-coco',
-    },
-    {
-        label: 'ssd-mobilenet-v1-coco2',
-    },
-    {
-        label: 'ssdlite-mobilenet-coco',
-    }
-]
+const models = getModelNames()
 
-const machines = [
-    {
-        label: 'CPU: 4, RAM: 16GB',
-        value: 'cpu'
-    },
-    {
-        label: 'GPU: 1 (Tesla K80), CPU: 4, RAM: 26GB',
-        value: 'gpu-4-26-1k80'
-    },
-    
-    
-]
+const machines = getMachineNames();
 
 export default class ModelNewAnnotationModalComponent extends React.PureComponent<Props, State> {
     public constructor(props: Props) {
@@ -154,11 +117,11 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             arguments: argumentS,
             dump_format: selectedModelType,
             machine_type: value,
-            ref_model: selectedModelType !!== "MASK ZIP 1.0" ? selectedModel : "",
+            ref_model: selectedModelType! !== "MASK ZIP 1.0" ? selectedModel : "",
             base_url: baseUrl,
             base_model: selectedBaseModel,
         }
-        
+
         // try {
         //     let resp = await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/dataset?format=cvat_coco`, {
         //         method: 'GET',
@@ -218,7 +181,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 >
                     cancel
                 </Button>
-                <Button 
+                <Button
                     type="primary"
                     size="small"
                     onClick={() => {
@@ -230,7 +193,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 </Button>
             </div>
         );
-        if(count == 0) {
+        if (count == 0) {
             notification.error({
                 message: 'Could not create new annotation.',
                 description: `You don't have any annotated images.
@@ -239,7 +202,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             closeDialog();
             return true;
         }
-        if(count < 100) {
+        if (count < 100) {
             notification.open({
                 message: 'Are you sure?',
                 description: `'Number of annotations is less than 100. 
@@ -277,13 +240,13 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             tracks,
         } = resp;
 
-        if(tracks.length) {
+        if (tracks.length) {
             this.onCreateNewAnnotation();
             return true;
         }
 
         let count = shapes.reduce((acc: number, shape: any) => {
-            if(shape.type === requiredShape) {
+            if (shape.type === requiredShape) {
                 acc++;
             }
             return acc;
@@ -319,15 +282,15 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                             placeholder='Select a model type'
                             style={{ width: '100%' }}
                             onChange={(value: string): void => {
-                                    this.setState({
-                                        selectedModelType: value,
-                                        showModelsOptions: value === "TFRecord ZIP 1.0",
-                                    })
-                                    if(value) {
-                                        const modelType = value === "TFRecord ZIP 1.0" ? "tensorflow" : "maskrcnn";
-                                        getBaseModelList(taskInstance, modelType);
-                                    }
+                                this.setState({
+                                    selectedModelType: value,
+                                    showModelsOptions: value === "TFRecord ZIP 1.0",
+                                })
+                                if (value) {
+                                    const modelType = value === "TFRecord ZIP 1.0" ? "tensorflow" : "maskrcnn";
+                                    getBaseModelList(taskInstance, modelType);
                                 }
+                            }
                             }
                         >
                             <Select.Option value="TFRecord ZIP 1.0">
@@ -340,7 +303,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     </Col>
                 </Row>
                 {
-                    this.state.showModelsOptions && 
+                    this.state.showModelsOptions &&
                     <Row type='flex' align='middle'>
                         <Col span={6}>Select Model:</Col>
                         <Col span={17}>
@@ -350,7 +313,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 onChange={(value: string): void => {
                                     this.setState({
                                         selectedModel: value,
-                                    })}
+                                    })
+                                }
                                 }
                                 defaultValue={this.state.selectedModel}
                             >
@@ -364,12 +328,12 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     </Row>
                 }
                 {
-                    this.state.showModelsOptions && 
+                    this.state.showModelsOptions &&
                     <Row type='flex'>
                         <Col>
                             <div>
-                                (Learn more about this base model by clicking the 'show more' link after clicking here:&nbsp; 
-                                <a 
+                                (Learn more about this base model by clicking the 'show more' link after clicking here:&nbsp;
+                                <a
                                     href={`https://docs.onepanel.ai/docs/getting-started/use-cases/computervision/annotation/cvat/cvat_annotation_model#${this.state.selectedModel}`}
                                     target='_blank'
                                     className="cvat-create-anno-modal-link"
@@ -391,7 +355,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 let machine = machines.find(machine => machine.value === value)
                                 this.setState({
                                     machineType: machine ? machine : machines[0]
-                                })}
+                                })
+                            }
                             }
                             defaultValue={this.state.machineType.label}
                         >
@@ -429,7 +394,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     <Col span={6}> Arguments: </Col>
                     <Col span={17}>
                         <TextArea
-                            autoSize={{minRows: 1 , maxRows: 4}}
+                            autoSize={{ minRows: 1, maxRows: 4 }}
                             onChange={this.onArgumenstChange}
                         />
                     </Col>
@@ -438,7 +403,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     <Col>
                         <div>
                             (Learn how to add model &nbsp;
-                            <a 
+                            <a
                                 href={`https://docs.onepanel.ai/docs/getting-started/use-cases/computervision/annotation/cvat/cvat_annotation_model#arguments-optional`}
                                 target='_blank'
                                 className="cvat-create-anno-modal-link"
@@ -457,26 +422,26 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         return (
             <div className='cvat-run-model-dialog'>
                 <div className="cvat-create-anno-modal-link cvat-create-anno-text-align" >
-                    <a 
+                    <a
                         href={`https://docs.onepanel.ai/docs/getting-started/use-cases/computervision/annotation/cvat/cvat_annotation_model#training-object-detection-model-through-cvat`}
                         target='_blank'>
                         How to use
                     </a>
                 </div>
-                { this.renderModelSelector() }
+                {this.renderModelSelector()}
             </div>
         );
     }
 
     private footerComponent(): JSX.Element[] {
-        const  {
+        const {
             closeDialog,
         } = this.props;
 
         let footerElements = [];
-        if(this.state.executingAnnotation) {
+        if (this.state.executingAnnotation) {
             footerElements.push(
-                <span key={"message"} style={{float: 'left', paddingTop: '5px', color: '#1890ff',}}>
+                <span key={"message"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
                     <Spin /> &nbsp; &nbsp;
                     {`Executing ${this.state.selectedModelType} workflow...`}
                 </span>
@@ -498,14 +463,14 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             <Button key="submit" type="primary" disabled={!!!this.state.selectedModelType} onClick={(): void => {
                 this.handleSubmit();
             }}>
-              Submit
+                Submit
             </Button>,
         ]
         return footerElements = [
             ...footerElements,
             ...footerButtons
         ]
-        
+
     }
 
     public render(): JSX.Element | false {
