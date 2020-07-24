@@ -158,7 +158,7 @@ export default function ActionsMenuComponent(props: Props): JSX.Element {
                             disabled={inferenceIsActive}
                             key={Actions.OPEN_NEW_ANNOTATION}
                         >
-                            Create new annotation
+                            Execute workflow
                         </Menu.Item>
                     )
             }
