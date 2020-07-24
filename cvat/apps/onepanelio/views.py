@@ -15,17 +15,20 @@ import onepanel.core.api
 from onepanel.core.api.rest import ApiException
 from pprint import pprint
 
-def get_workflow_templates(request):
+
+
+def onepanel_authorize():
     auth_token = AuthToken.get_auth_token(request)
-    configuration = onepanel.core.api.Configuration()
-    # Configure API key authorization: Bearer
-    configuration.api_key['authorization'] = auth_token
-    # Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
-    configuration.api_key_prefix['authorization'] = 'Bearer'
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    configuration = onepanel.core.api.Configuration(
+        host = os.getenv('ONEPANEL_API_URL'),
+        api_key = { 'Bearer': auth_token})
+    configuration.api_key_prefix['Bearer'] = 'Bearer'
+    return configuration
 
-    # Defining host is optional and default to http://localhost:8888
-    configuration.host = os.getenv('ONEPANEL_API_URL')
 
+def get_workflow_templates(request):
+    configuration = onepanel_authorize()
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
@@ -43,15 +46,7 @@ def get_workflow_templates(request):
 
 
 def get_node_pool(request):
-    auth_token = AuthToken.get_auth_token(request)
-    configuration = onepanel.core.api.Configuration()
-    # Configure API key authorization: Bearer
-    configuration.api_key['authorization'] = auth_token
-    # Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
-    configuration.api_key_prefix['authorization'] = 'Bearer'
-
-    # Defining host is optional and default to http://localhost:8888
-    configuration.host = os.getenv('ONEPANEL_API_URL')
+    configuration = onepanel_authorize()
 
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
@@ -61,7 +56,7 @@ def get_node_pool(request):
     try:
         api_response = api_instance.get_config()
         pprint(api_response)
-        return JsonResponse(api_response.to_dict()) #send only node pool?
+        return JsonResponse(api_response.to_dict()['node_pool']['options'])
         
     except ApiException as e:
         print("Exception when calling ConfigServiceApi->get_config: %s\n" % e)
@@ -196,15 +191,8 @@ def create_annotation_model(request, pk):
                     s3_client.upload_file(os.path.join(test_dir,"images",file),os.getenv('AWS_BUCKET_NAME'),os.path.join(aws_s3_prefix+dataset_name+"/images/", file))
 
     #execute workflow
-    configuration = onepanel.core.api.Configuration()
-    # # Configure API key authorization: Bearer
-    # configuration.api_key['authorization'] = AuthToken.get_auth_token(request)
-    # locally use env var
-    configuration.api_key['authorization'] = os.getenv('ONEPANEL_AUTHORIZATION')
-    # Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
-    configuration.api_key_prefix['authorization'] = 'Bearer'
-    # Defining host is optional and default to http://localhost:8888
-    configuration.host = os.getenv('ONEPANEL_API_URL')
+    configuration = onepanel_authorize()
+
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
