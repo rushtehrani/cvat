@@ -14,6 +14,7 @@ import {
 } from 'reducers/interfaces';
 
 import { modelsActions } from 'actions/models-actions';
+import { createAnnotationAction } from 'onepanel/createAnnotationModal/createAnnotation.action';
 import {
     dumpAnnotationsAsync,
     loadAnnotationsAsync,
@@ -106,7 +107,7 @@ function mapDispatchToProps(dispatch: any): DispatchToProps {
             dispatch(modelsActions.showRunModelDialog(taskInstance));
         },
         openNewAnnotationModel: (taskInstance: any): void => {
-            dispatch(modelsActions.openNewAnnotationDialog(taskInstance));
+            dispatch(createAnnotationAction.openNewAnnotationDialog(taskInstance));
         },
     };
 }
@@ -173,7 +174,7 @@ function ActionsMenuContainer(props: OwnProps & StateToProps & DispatchToProps):
                 window.open(`${taskInstance.bugTracker}`, '_blank');
             } else if (action === Actions.RUN_AUTO_ANNOTATION) {
                 openRunModelWindow(taskInstance);
-            } else if (action === Actions.NEW_ANNOTATION) {
+            } else if (action === Actions.OPEN_NEW_ANNOTATION) {
                 openNewAnnotationModel(taskInstance);
             }
         }
