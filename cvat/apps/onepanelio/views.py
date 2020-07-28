@@ -58,6 +58,31 @@ def get_workflow_templates(request):
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
 
 
+
+@api_view(['POST'])
+def get_workflow_parameters(request):
+    """This function should return a list/dict of parameters for selected workflow.
+    Additionally, use default values to pre-populate fields.
+
+    """
+    # read workflow_uid and workflow_version from request payload
+
+
+    configuration = onepanel_authorize()
+    # Enter a context with an instance of the API client
+    with onepanel.core.api.ApiClient(configuration) as api_client:
+        # Create an instance of the API class
+        api_instance = onepanel.core.api.WorkflowTemplateServiceApi(api_client)
+        namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')  # str |
+    try:
+        api_response = api_instance.get_workflow_template2(namespace, uid=workflow_uid, version=str(workflow_version))
+        pprint(api_response)
+        return JsonResponse(api_response.to_dict())
+    except ApiException as e:
+        print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
+
+
+
 @api_view(['POST'])
 def get_node_pool(request):
     configuration = onepanel_authorize()
@@ -85,6 +110,12 @@ def authenticate_aws():
     """ Set appropriate env vars before importing boto3
 
     """
+    with open("/etc/onepanel/artifactRepository") as file:
+        data = yaml.load(file, Loader=yaml.FullLoader)
+    
+    cloud_provider = list(data.keys())[1]
+
+
     with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
         access_key = yaml.load(file, Loader=yaml.FullLoader)
         
@@ -95,17 +126,19 @@ def authenticate_aws():
     os.environ['AWS_ACCESS_KEY_ID'] = access_key
     os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
 
+    return data[cloud_provider]['bucket']
+
 @api_view(['POST'])
 def get_model_keys(request):
     # db_task = self.get_object()
     form_data = json.loads(request.body.decode('utf-8'))
-    authenticate_aws()
+    bucket_name = authenticate_aws()
     import boto3
     from botocore.exceptions import ClientError
     S3 = boto3.client('s3')
     paginator = S3.get_paginator('list_objects_v2')
     keys = set()
-    for page in paginator.paginate(Bucket=os.getenv('AWS_BUCKET_NAME'), Prefix=os.getenv('AWS_S3_PREFIX','datesets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'):
+    for page in paginator.paginate(Bucket=bucket_name, Prefix=os.getenv('AWS_S3_PREFIX','datesets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'):
         try:
             contents = page['Contents']
         except KeyError as e:
@@ -123,13 +156,6 @@ def get_model_keys(request):
                         keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
     return Response({'keys':keys})
 
-@api_view(['POST'])
-def get_workflow_parameters(request):
-    """This function should return a list/dict of parameters for selected workflow.
-    Additionally, use default values to pre-populate fields.
-
-    """
-    pass
 
 
 def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
@@ -138,15 +164,11 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
         TaskModel.objects.get(pk=uid), db_task.owner.username)
 
     # read artifactRepository to find out cloud provider and get access for upload
-    with open("/etc/onepanel/artifactRepository") as file:
-        data = yaml.load(file, Loader=yaml.FullLoader)
-    cloud_provider = list(data.keys())[1]
-    bucket_name = data[cloud_provider]['bucket']
+    
+    bucket_name = authenticate_aws()
     
     if cloud_provider == "s3":
         
-        authenticate_aws()
-
         import boto3
         from botocore.exceptions import ClientError
 
@@ -262,7 +284,7 @@ def create_annotation_model(request, pk):
                 ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
             else:
                 ref_model_path = ""
-            params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX','datasets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_tfod_"+form_data['ref_model']+'_'+stamp+'/'))
+            params.append(Parameter(name='model-path',value=os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/workflow_data/models/'+os.getenv('ONEPANEL_RESOURCE_UID')+'_'+db_task.name+"_tfod_"+stamp+'/'))
             params.append(Parameter(name='ref-model-path', value=ref_model_path))
             params.append(Parameter(name='num-classes', value=str(num_classes)))
             params.append(Parameter(name="ref-model", value=form_data['ref_model']))
@@ -273,7 +295,7 @@ def create_annotation_model(request, pk):
                 ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
             else:
                 ref_model_path = ""
-            params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_maskrcnn_"+stamp+'/'))
+            params.append(Parameter(name='model-path',value=os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/workflow_data/models/'+os.getenv('ONEPANEL_RESOURCE_UID')+'_' + db_task.name+"_maskrcnn_"+stamp+'/'))
             params.append(Parameter(name='ref-model-path', value=ref_model_path))
             params.append(Parameter(name='num-classes', value=str(num_classes+1)))
             params.append(Parameter(name='stage-1-epochs', value=str(args_and_vals['--stage1_epochs'])))

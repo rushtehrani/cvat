@@ -140,7 +140,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         //     });
 
         try {
-            await core.server.request(`${baseUrl}/onepanelio/create_annotation_model/${taskInstance.id}`, {
+            await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
                 method: 'POST',
                 data: formData,
                 // form: formData,
