@@ -5,8 +5,6 @@
 from __future__ import print_function
 
 import os, json
-import boto3
-from botocore.exceptions import ClientError
 from tempfile import mkstemp
 import tempfile
 from django.http import JsonResponse
@@ -83,11 +81,27 @@ def get_object_counts(request, pk):
     data = annotation.get_task_data_custom(pk, request.user)
     return Response(data)
 
+def authenticate_aws():
+    """ Set appropriate env vars before importing boto3
+
+    """
+    with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
+        access_key = yaml.load(file, Loader=yaml.FullLoader)
+        
+    with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
+        secret_key = yaml.load(file, Loader=yaml.FullLoader)
+
+    #set env vars
+    os.environ['AWS_ACCESS_KEY_ID'] = access_key
+    os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
 
 @api_view(['POST'])
 def get_model_keys(request):
     # db_task = self.get_object()
     form_data = json.loads(request.body.decode('utf-8'))
+    authenticate_aws()
+    import boto3
+    from botocore.exceptions import ClientError
     S3 = boto3.client('s3')
     paginator = S3.get_paginator('list_objects_v2')
     keys = set()
@@ -130,15 +144,11 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
     bucket_name = data[cloud_provider]['bucket']
     
     if cloud_provider == "s3":
-        with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
-            access_key = yaml.load(file, Loader=yaml.FullLoader)
         
-        with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
-            secret_key = yaml.load(file, Loader=yaml.FullLoader)
+        authenticate_aws()
 
-        #set env vars
-        os.environ['AWS_ACCESS_KEY_ID'] = access_key
-        os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
+        import boto3
+        from botocore.exceptions import ClientError
 
         #check if datasets folder exists on aws bucket
         s3_client = boto3.client('s3')
