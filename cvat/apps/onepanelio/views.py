@@ -4,29 +4,45 @@
 
 from __future__ import print_function
 
-import os
-
+import os, json
+import boto3
+from botocore.exceptions import ClientError
+from tempfile import mkstemp
+import tempfile
 from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseNotFound
+from rest_framework.response import Response
 
 from cvat.apps.authentication.decorators import login_required
 from cvat.apps.onepanelio.models import AuthToken
+from cvat.apps.engine import annotation
+from cvat.apps.engine.models import Task as TaskModel
+from cvat.apps.engine.log import slogger
+import cvat.apps.dataset_manager.task as dm
+from rest_framework import status
+
 import time
+from datetime import datetime
 import onepanel.core.api
 from onepanel.core.api.rest import ApiException
+from onepanel.core.api.models import Parameter
+
 from pprint import pprint
+from rest_framework.decorators import api_view
+
 
 
 
 def onepanel_authorize():
-    auth_token = AuthToken.get_auth_token(request)
-    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    # auth_token = AuthToken.get_auth_token(request)
+    auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
         api_key = { 'Bearer': auth_token})
     configuration.api_key_prefix['Bearer'] = 'Bearer'
     return configuration
 
-
+@api_view(['POST'])
 def get_workflow_templates(request):
     configuration = onepanel_authorize()
     # Enter a context with an instance of the API client
@@ -44,7 +60,7 @@ def get_workflow_templates(request):
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
 
 
-
+@api_view(['POST'])
 def get_node_pool(request):
     configuration = onepanel_authorize()
 
@@ -61,15 +77,17 @@ def get_node_pool(request):
     except ApiException as e:
         print("Exception when calling ConfigServiceApi->get_config: %s\n" % e)
 
-
+@api_view(['POST'])
 def get_object_counts(request, pk):
     # db_task = self.get_object()
     data = annotation.get_task_data_custom(pk, request.user)
     return Response(data)
 
-def get_model_keys(request, pk):
+
+@api_view(['POST'])
+def get_model_keys(request):
     # db_task = self.get_object()
-    form_data = request.data
+    form_data = json.loads(request.body.decode('utf-8'))
     S3 = boto3.client('s3')
     paginator = S3.get_paginator('list_objects_v2')
     keys = set()
@@ -92,6 +110,7 @@ def get_model_keys(request, pk):
                         keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
     return Response({'keys':keys})
 
+@api_view(['POST'])
 def get_workflow_parameters(request):
     """This function should return a list/dict of parameters for selected workflow.
     Additionally, use default values to pre-populate fields.
@@ -99,15 +118,17 @@ def get_workflow_parameters(request):
     """
     pass
 
+
+@api_view(['POST'])
 def create_annotation_model(request, pk):
-    db_task = self.get_object()
+    db_task = TaskModel.objects.get(pk=pk)
     db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
     num_classes = len(db_labels.values())
 
     slogger.glob.info("Createing annotation model for task: {} with num_classes {}".format(db_task.name,num_classes))
 
-    form_data = request.data
+    form_data = json.loads(request.body.decode('utf-8'))
     slogger.glob.info("Form data without preprocessing {} {}".format(form_data, type(form_data)))
     # form_data = json.loads(next(iter(form_data.dict().keys())))
     # slogger.glob.info("form data {}".format(form_data))
@@ -136,12 +157,8 @@ def create_annotation_model(request, pk):
         args_and_vals["--stage2_epochs"] = 2
     if '--stage3_epochs' not in args_and_vals:
         args_and_vals["--stage3_epochs"] = 3
-    # print(args_and_vals)
-    # print("db",db_task)
-    # print(db_task.owner.username,"name")
-    # self.export_annotations_for_model(pk,form_data)
     project = dm.TaskProject.from_task(
-        Task.objects.get(pk=form_data['project_uid']), db_task.owner.username)
+        TaskModel.objects.get(pk=form_data['project_uid']), db_task.owner.username)
 
 
     #check if datasets folder exists on aws bucket
@@ -162,8 +179,6 @@ def create_annotation_model(request, pk):
         slogger.glob.info("Datasets folder does not exist in the bucket, creating a new one.")
         s3_client.put_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=(aws_s3_prefix))
 
-    # TODO: create dataset and dump locally and push to s3
-    # TODO: folder name should have timestamp
     #project_uid is actually a task id
     with tempfile.TemporaryDirectory() as test_dir:
         #print(test_dir)
@@ -225,6 +240,9 @@ def create_annotation_model(request, pk):
             else:
                 ref_model_path = ""
             slogger.glob.info("maskrcnn ref model path {}".format(ref_model_path))
+            print(os.getenv('AWS_S3_PREFIX'))
+            print(os.getenv('ONEPANEL_RESOURCE_NAMESPACE'))
+            print(os.getenv('ONEPANEL_RESOURCE_UID'))
             params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_maskrcnn_"+stamp+'/'))
             params.append(Parameter(name='ref-model-path', value=ref_model_path))
             params.append(Parameter(name='num-classes', value=str(num_classes+1)))

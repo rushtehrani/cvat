@@ -140,7 +140,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         //     });
 
         try {
-            await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/create_annotation_model`, {
+            await core.server.request(`${baseUrl}/onepanelio/create_annotation_model/${taskInstance.id}`, {
                 method: 'POST',
                 data: formData,
                 // form: formData,
@@ -228,7 +228,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         // let resp1 = await core.server.request(`${baseUrl}/api/v1/jobs/${taskInstance.id}/get_object_counts`, {
         //     method: 'GET',
         // });
-        let resp = await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/get_object_counts`, {
+        let resp = await core.server.request(`${baseUrl}/onepanelio/get_object_counts/${taskInstance.id}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

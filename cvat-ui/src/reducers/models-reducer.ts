@@ -4,6 +4,7 @@
 
 import { boundariesActions, BoundariesActionTypes } from 'actions/boundaries-actions';
 import { ModelsActionTypes, ModelsActions } from 'actions/models-actions';
+import {CreateAnnotationActionTypes, CretaeAnnotationActions } from 'onepanel/createAnnotationModal/createAnnotation.action';
 import { AuthActionTypes, AuthActions } from 'actions/auth-actions';
 import { ModelsState } from './interfaces';
 
@@ -22,7 +23,7 @@ const defaultState: ModelsState = {
 
 export default function (
     state = defaultState,
-    action: ModelsActions | AuthActions | boundariesActions,
+    action: ModelsActions | AuthActions | boundariesActions | CretaeAnnotationActions,
 ): ModelsState {
     switch (action.type) {
         case ModelsActionTypes.GET_MODELS: {
@@ -94,20 +95,20 @@ export default function (
                 activeRunTask: null,
             };
         }
-        case ModelsActionTypes.OPEN_NEW_ANNOTATION_DIALOG: {
+        case CreateAnnotationActionTypes.OPEN_NEW_ANNOTATION_DIALOG: {
             return {
                 ...state,
                 visibleNewAnnotationWindows: true,
                 activeNewAnnotationTask: action.payload.taskInstance,
             };
         }
-        case ModelsActionTypes.GET_BASE_MODEL: {
+        case CreateAnnotationActionTypes.GET_BASE_MODEL: {
             return {
                 ...state,
                 baseModelList: action.payload.baseModelList,
             };
         }
-        case ModelsActionTypes.CLOSE_NEW_ANNOTATION_DIALOG: {
+        case CreateAnnotationActionTypes.CLOSE_NEW_ANNOTATION_DIALOG: {
             return {
                 ...state,
                 visibleNewAnnotationWindows: false,

@@ -151,17 +151,12 @@ export default function ActionsMenuComponent(props: Props): JSX.Element {
                         </Menu.Item>
                     )
             }
-            {
-                renderModelRunner
-                    && (
-                        <Menu.Item
-                            disabled={inferenceIsActive}
-                            key={Actions.OPEN_NEW_ANNOTATION}
-                        >
-                            Execute workflow
-                        </Menu.Item>
-                    )
-            }
+           <Menu.Item
+                disabled={inferenceIsActive}
+                key={Actions.OPEN_NEW_ANNOTATION}
+            >
+                Create new annotation
+            </Menu.Item>
             <hr />
             <Menu.Item key={Actions.DELETE_TASK}>Delete</Menu.Item>
         </Menu>

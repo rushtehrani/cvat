@@ -5,21 +5,22 @@ import getCore from 'cvat-core-wrapper';
 const core = getCore();
 const baseURL = core.config.backendAPI.slice(0, -7);
 
-export enum ModelsActionTypes {
+export enum CreateAnnotationActionTypes {
     OPEN_NEW_ANNOTATION_DIALOG = 'SHOW_NEW_ANNOTATION_DIALOG',
     CLOSE_NEW_ANNOTATION_DIALOG = 'CLOSE_NEW_ANNOTATION_DIALOG',
     GET_BASE_MODEL = 'GET_BASE_MODEL',
 }
+export type CretaeAnnotationActions = ActionUnion<typeof createAnnotationAction>;
 
 export const createAnnotationAction = {
     openNewAnnotationDialog: (taskInstance: any) => createAction(
-        ModelsActionTypes.OPEN_NEW_ANNOTATION_DIALOG, { 
+        CreateAnnotationActionTypes.OPEN_NEW_ANNOTATION_DIALOG, { 
             taskInstance,
          },
     ),
-    closeNewAnnotationDialog: () => createAction(ModelsActionTypes.CLOSE_NEW_ANNOTATION_DIALOG),
+    closeNewAnnotationDialog: () => createAction(CreateAnnotationActionTypes.CLOSE_NEW_ANNOTATION_DIALOG),
     getBaseModelList: (baseModelList: string[]) => createAction(
-        ModelsActionTypes.GET_BASE_MODEL, {
+        CreateAnnotationActionTypes.GET_BASE_MODEL, {
             baseModelList,
         },
     ),
@@ -29,7 +30,7 @@ export function getBaseModelsAsync(taskInstance: any, modelType: string) : Thunk
     return async(dispatch, getState): Promise<void> => {
         try {
             const {keys} = await core.server.request(
-                `${baseURL}/api/v1/tasks/${taskInstance.id}/get_base_model`, {
+                `${baseURL}/onepanelio/get_base_model`, {
                     method: 'POST',
                     data: {model_type: modelType},
                     headers: {
