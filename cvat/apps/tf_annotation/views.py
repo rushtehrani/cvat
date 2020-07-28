@@ -77,16 +77,12 @@ def run_tf_model(task_id_tf, model_path_tf, label_mapping_tf, threshold_tf,
 						config.gpu_options.allow_growth=True
 						sess = tf.Session(graph=detection_graph, config=config)
 						result = {}
-						# print(start_of_image_list, end_of_image_list)
 						image_list_chunk = image_list_all[start_of_image_list_tf:]
-						slogger.glob.info("image list chunk {}".format(image_list_chunk))
 						if end_of_image_list_tf > 0:
 								image_list_chunk = image_list_all[start_of_image_list_tf:end_of_image_list_tf]
 						progress_indicator_start = 0
 						progress_indicator_end = len(image_list_chunk)
-						# print(image_list_chunk)
 						for image_num, (image, _) in enumerate(image_list_chunk):
-								slogger.glob.info("image and image_num {}, {}".format(image, image_num))
 								if int(split_tf) > 0:
 										image_num = image_num + split_tf * int(split_size)
 
@@ -96,7 +92,6 @@ def run_tf_model(task_id_tf, model_path_tf, label_mapping_tf, threshold_tf,
 										job.save()
 										break
 								Image.MAX_IMAGE_PIXELS = None
-								# print("reading image {}".format(image_path))
 								image = Image.open(image)
 								width, height = image.size
 								if width > 1920 or height > 1080:
@@ -301,8 +296,7 @@ def run_tensorflow_annotation(tid, image_list, labels_mapping, treshold, model_p
 		for index, file_removed in progress_files_gone.items():
 			if file_removed == False:
 				continue_reading_progress = True
-	slogger.glob.info("resulot: {}".format(result))
-	slogger.glob.info("label mapping {}".format(labels_mapping))
+	slogger.glob.info("TF Result: {}".format(result))
 	return result
 
 def make_image_list(path_to_data):
@@ -364,14 +358,12 @@ def create_thread(tid, labels_mapping, user, tf_annotation_model_path, reset):
 		result = None
 		slogger.glob.info("tf annotation with tensorflow framework for task {}".format(tid))
 		result = run_tensorflow_annotation(tid, image_list, labels_mapping, TRESHOLD, tf_annotation_model_path)
-		slogger.glob.info("tf annotations result {}".format(result))
 		if result is None:
 			slogger.glob.info('tf annotation for task {} canceled by user'.format(tid))
 			return
 		# Modify data format and save
 		result = convert_to_cvat_format(result)
 		serializer = LabeledDataSerializer(data=result)
-		slogger.glob.info("serializer valid {}".format(serializer.is_valid(raise_exception=True)))
 		if serializer.is_valid(raise_exception=True):
 			if reset:
 				put_task_data(tid, user, result)
@@ -392,8 +384,6 @@ def get_meta_info(request):
 	try:
 		queue = django_rq.get_queue('low')
 	
-		slogger.glob.info("tf get_meta request {} / ".format(request))
-		# slogger.glob.info("tf request body {}".format(request.body.decode('utf-8')))
 		tids = request.data
 		result = {}
 		for tid in tids:
@@ -423,13 +413,11 @@ def create(request, tid, mid):
 
 		user_label_mapping = data["labels"]
 		should_reset = data['reset']
-		slogger.glob.info("user defined mapping {}".format(user_label_mapping))
 		db_task = TaskModel.objects.get(pk=tid)
 		
 		 
 		db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
 		db_labels = {db_label.id: db_label.name for db_label in db_labels}
-		slogger.glob.info("db labels {}".format(db_labels))
 
 		slogger.glob.info("tensorflow model id {} and type {}".format(mid, type(mid)))
 		if int(mid) == 989898:
@@ -487,11 +475,7 @@ def create(request, tid, mid):
 
 		queue = django_rq.get_queue('low')
 		job_id = 'tf_annotation.create/{}'.format(str(tid))
-		# slogger.glob.info("job detail isnide create {}".format(job_id))
-		# slogger.glob.info("tf custom job {}".format(job_id))
 		job = queue.fetch_job(job_id)
-		# slogger.glob.info("job enqueued {} status: {} is finished {} {}".format(job, job.is_started, job.is_finished,job.is_queued))
-		# if job is not None
 		if job is not None and (job.is_started or job.is_queued):
 			raise Exception("The process is already running")
 	   
@@ -524,14 +508,10 @@ def check(request, tid):
 	try:
 		queue = django_rq.get_queue('low')
 		job = queue.fetch_job('tf_annotation.create/{}'.format(tid))
-		#slogger.glob.info("job in check {}  {}  {}  {}".format(job, job.meta, job.is_queued, job.is_finished))
-		# jobold = queue.fetch_job('tf_annotation.createold/{}'.format(tid))
+	
 		if job is not None and 'cancel' in job.meta:
 			return JsonResponse({'status':'finished'})
-		# if jobold is not None and 'cancel' in jobold.meta:
-		#     return JsonResponse({'status': 'finished'})
-		# if job is None:
-		#     job = jobold
+	
 		data = {}
 		if job is None:
 			data['status'] = 'unknown'
@@ -547,7 +527,6 @@ def check(request, tid):
 			data['status'] = 'failed'
 			data['stderr'] = job.exc_info
 			job.delete()
-		slogger.glob.info("job in check {}  {}  {}  {}".format(job, job.meta, job.is_queued, job.is_finished))
 
 	except Exception:
 		data['status'] = 'unknown'
@@ -562,29 +541,13 @@ def cancel(request, tid):
 	try:
 		queue = django_rq.get_queue('low')
 		job = queue.fetch_job('tf_annotation.create/{}'.format(tid))
-		slogger.glob.info("cancel tf custom job {}".format(job))
-		# slogger.glob.info("job info {} {}".format(job.meta, job.is_finished))
-		# jobold = queue.fetch_job('tf_annotation.createold/{}'.format(tid))
-		# slogger.glob.info("jcancel job  tfold {}".format(jobold))
-		# slogger.glob.info("job old meta {}".format(jobold.meta))
+	
 		if job is None or job.is_finished or job.is_failed:
-			# if jobold is None or jobold.is_finished or jobold.is_failed:
 			raise Exception('Task is not being annotated currently')
 		elif 'cancel' not in job.meta:
-			slogger.glob.info("canceling annotation for custom model")
 			job.meta['cancel'] = True
-			# job.meta['status'] = 'unknown'
-			slogger.glob.info("updated job status {}  meta: {}".format( job.is_finished, job.meta))
 			job.save()
-		# elif jobold is not None and 'cancel' not in jobold.meta:
-		#     slogger.glob.info("canceling inference for default model")
-		#     jobold.meta['cancel'] = True
-		#     # jobold.meta['status'] = 'unknown'
-		#     slogger.glob.info("updated job status {}: meta {}".format( jobold.is_finished, jobold.meta))
-
-		#     jobold.save()
-		slogger.glob.info("After cancellation jobs {}".format(queue.fetch_job('tf_annotation.create/{}'.format(tid))))
-
+	
 	except Exception as ex:
 		try:
 			slogger.task[tid].exception("cannot cancel tensorflow annotation for task #{}".format(tid), exc_info=True)

@@ -102,7 +102,6 @@ class RectangleTracker:
 			no_error, bbox = self._tracker.update(img)
 			if no_error:
 				# print()
-				print("cv", cv_bbox_to_rectangle(bbox))
 				cv_box = cv_bbox_to_rectangle(bbox)
 				result[label_id].append([frame, cv_box[0],cv_box[1],cv_box[2],cv_box[3]])
 			

@@ -99,7 +99,6 @@ def get_model_keys(request):
             break
 
         for cont in contents:
-            # print(cont['Key'])
             key = cont['Key']
             if "models" in key and "saved_model" not in key and "logs" not in key:
                 if form_data['model_type'] == "tensorflow":
@@ -126,7 +125,7 @@ def create_annotation_model(request, pk):
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
     num_classes = len(db_labels.values())
 
-    slogger.glob.info("Createing annotation model for task: {} with num_classes {}".format(db_task.name,num_classes))
+    slogger.glob.info("Creating annotation model for task: {} with num_classes {}".format(db_task.name,num_classes))
 
     form_data = json.loads(request.body.decode('utf-8'))
     slogger.glob.info("Form data without preprocessing {} {}".format(form_data, type(form_data)))
@@ -163,7 +162,6 @@ def create_annotation_model(request, pk):
 
     #check if datasets folder exists on aws bucket
     s3_client = boto3.client('s3')
-    # print(os.getenv('AWS_BUCKET_NAME'))
     if os.getenv("AWS_BUCKET_NAME", None) is None:
         msg = "AWS_BUCKET_NAME environment var does not exist. Please add ENV var with bucket name."
         slogger.glob.info("AWS_BUCKET_NAME environment var does not exist. Please add ENV var with bucket name.")
@@ -172,7 +170,6 @@ def create_annotation_model(request, pk):
     aws_s3_prefix = os.getenv('AWS_S3_PREFIX','datasets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/datasets/'
     try:
         s3_client.head_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=aws_s3_prefix)
-        # print("exists")
         #add logging
     except ClientError:
         # Not found
@@ -181,10 +178,7 @@ def create_annotation_model(request, pk):
 
     #project_uid is actually a task id
     with tempfile.TemporaryDirectory() as test_dir:
-        #print(test_dir)
-        
 
-        #print(os.listdir(test_dir))
         if "TFRecord" in form_data['dump_format']:
             dataset_name = db_task.name+"_tfrecords_"+stamp
             dataset_path_aws = os.path.join("datasets",dataset_name)
@@ -202,7 +196,6 @@ def create_annotation_model(request, pk):
 
             for root,dirs,files in os.walk(os.path.join(test_dir, "images")):
                 for file in files:
-                    print(os.path.join(root, file))
                     s3_client.upload_file(os.path.join(test_dir,"images",file),os.getenv('AWS_BUCKET_NAME'),os.path.join(aws_s3_prefix+dataset_name+"/images/", file))
 
     #execute workflow
@@ -227,7 +220,6 @@ def create_annotation_model(request, pk):
                 ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
             else:
                 ref_model_path = ""
-            slogger.glob.info("TF ref model path {}".format(ref_model_path))
             params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX','datasets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_tfod_"+form_data['ref_model']+'_'+stamp+'/'))
             params.append(Parameter(name='ref-model-path', value=ref_model_path))
             params.append(Parameter(name='num-classes', value=str(num_classes)))
@@ -239,10 +231,6 @@ def create_annotation_model(request, pk):
                 ref_model_path = os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+form_data['base_model']
             else:
                 ref_model_path = ""
-            slogger.glob.info("maskrcnn ref model path {}".format(ref_model_path))
-            print(os.getenv('AWS_S3_PREFIX'))
-            print(os.getenv('ONEPANEL_RESOURCE_NAMESPACE'))
-            print(os.getenv('ONEPANEL_RESOURCE_UID'))
             params.append(Parameter(name='model-path',value=os.getenv('AWS_S3_PREFIX')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/models/'+db_task.name+"_maskrcnn_"+stamp+'/'))
             params.append(Parameter(name='ref-model-path', value=ref_model_path))
             params.append(Parameter(name='num-classes', value=str(num_classes+1)))
