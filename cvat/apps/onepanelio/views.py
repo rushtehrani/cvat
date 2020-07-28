@@ -29,7 +29,7 @@ from onepanel.core.api.models import Parameter
 
 from pprint import pprint
 from rest_framework.decorators import api_view
-
+import yaml
 
 
 
@@ -118,8 +118,77 @@ def get_workflow_parameters(request):
     pass
 
 
+def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
+
+    project = dm.TaskProject.from_task(
+        TaskModel.objects.get(pk=uid), db_task.owner.username)
+
+    # read artifactRepository to find out cloud provider and get access for upload
+    with open("/etc/onepanel/artifactRepository") as file:
+        data = yaml.load(file, Loader=yaml.FullLoader)
+    cloud_provider = list(data.keys())[1]
+    bucket_name = data[cloud_provider]['bucket']
+    
+    if cloud_provider == "s3":
+        with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
+            access_key = yaml.load(file, Loader=yaml.FullLoader)
+        
+        with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
+            secret_key = yaml.load(file, Loader=yaml.FullLoader)
+
+        #set env vars
+        os.environ['AWS_ACCESS_KEY_ID'] = access_key
+        os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
+
+        #check if datasets folder exists on aws bucket
+        s3_client = boto3.client('s3')
+
+        try:
+            s3_client.head_object(Bucket=bucket_name, Key=cloud_prefix)
+            #add logging
+        except ClientError:
+            # Not found
+            slogger.glob.info("Datasets folder does not exist in the bucket, creating a new one.")
+            s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix))
+
+        #project_uid is actually a task id
+        with tempfile.TemporaryDirectory() as test_dir:
+
+            if "TFRecord" in dump_format:
+                dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_tfrecords_"+stamp
+                project.export("cvat_tfrecord", test_dir, save_images=True)
+                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix+dataset_name+'/'))
+                s3_client.upload_file(os.path.join(test_dir, 'default.tfrecord'), bucket_name,cloud_prefix+dataset_name+'/default.tfrecord')
+                s3_client.upload_file(os.path.join(test_dir, 'label_map.pbtxt'), bucket_name,cloud_prefix+dataset_name+'/label_map.pbtxt')
+            else:
+                dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_coco_"+stamp
+                project.export("cvat_coco", test_dir, save_images=True)
+                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix+dataset_name+'/annotations/'))
+                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix+dataset_name+'/images/'))
+                s3_client.upload_file(os.path.join(test_dir, "annotations/instances_default.json"),bucket_name,cloud_prefix+dataset_name+"/annotations/instances_default.json")
+
+                for root,dirs,files in os.walk(os.path.join(test_dir, "images")):
+                    for file in files:
+                        s3_client.upload_file(os.path.join(test_dir,"images",file),bucket_name,os.path.join(cloud_prefix+dataset_name+"/images/", file))
+
+    elif cloud_provider == "gcs":
+        pass
+    
+    elif cloud_provider == "az":
+        pass
+
+    else:
+        raise ValueError("Invalid cloud provider! Should be from ['s3','gcs','az']")
+
+    return bucket_name, dataset_name
+
+
 @api_view(['POST'])
 def create_annotation_model(request, pk):
+    """
+        Executes workflow selected by User.
+    """
+    
     db_task = TaskModel.objects.get(pk=pk)
     db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
@@ -129,12 +198,11 @@ def create_annotation_model(request, pk):
 
     form_data = json.loads(request.body.decode('utf-8'))
     slogger.glob.info("Form data without preprocessing {} {}".format(form_data, type(form_data)))
-    # form_data = json.loads(next(iter(form_data.dict().keys())))
-    # slogger.glob.info("form data {}".format(form_data))
-    # Parse any extra arguments
+ 
     form_args = form_data['arguments']
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
+
     if "cpu" in form_data['machine_type']:
         tf_image = "tensorflow/tensorflow:1.13.1-py3"
         machine ="Standard_D4s_v3"
@@ -156,48 +224,12 @@ def create_annotation_model(request, pk):
         args_and_vals["--stage2_epochs"] = 2
     if '--stage3_epochs' not in args_and_vals:
         args_and_vals["--stage3_epochs"] = 3
-    project = dm.TaskProject.from_task(
-        TaskModel.objects.get(pk=form_data['project_uid']), db_task.owner.username)
 
+    cloud_prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+ '/annotation-dump/'
 
-    #check if datasets folder exists on aws bucket
-    s3_client = boto3.client('s3')
-    if os.getenv("AWS_BUCKET_NAME", None) is None:
-        msg = "AWS_BUCKET_NAME environment var does not exist. Please add ENV var with bucket name."
-        slogger.glob.info("AWS_BUCKET_NAME environment var does not exist. Please add ENV var with bucket name.")
-        return Response(data=msg, status=status.HTTP_400_BAD_REQUEST)
-
-    aws_s3_prefix = os.getenv('AWS_S3_PREFIX','datasets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+os.getenv('ONEPANEL_RESOURCE_UID')+'/datasets/'
-    try:
-        s3_client.head_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=aws_s3_prefix)
-        #add logging
-    except ClientError:
-        # Not found
-        slogger.glob.info("Datasets folder does not exist in the bucket, creating a new one.")
-        s3_client.put_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=(aws_s3_prefix))
-
-    #project_uid is actually a task id
-    with tempfile.TemporaryDirectory() as test_dir:
-
-        if "TFRecord" in form_data['dump_format']:
-            dataset_name = db_task.name+"_tfrecords_"+stamp
-            dataset_path_aws = os.path.join("datasets",dataset_name)
-            project.export("cvat_tfrecord", test_dir, save_images=True)
-            s3_client.put_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=(aws_s3_prefix+dataset_name+'/'))
-            s3_client.upload_file(os.path.join(test_dir, 'default.tfrecord'), os.getenv('AWS_BUCKET_NAME'),aws_s3_prefix+dataset_name+'/default.tfrecord')
-            s3_client.upload_file(os.path.join(test_dir, 'label_map.pbtxt'), os.getenv('AWS_BUCKET_NAME'),aws_s3_prefix+dataset_name+'/label_map.pbtxt')
-        else:
-            dataset_name = db_task.name+"_coco_"+stamp
-            dataset_path_aws = os.path.join("datasets",dataset_name)
-            project.export("cvat_coco", test_dir, save_images=True)
-            s3_client.put_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=(aws_s3_prefix+dataset_name+'/annotations/'))
-            s3_client.put_object(Bucket=os.getenv('AWS_BUCKET_NAME'), Key=(aws_s3_prefix+dataset_name+'/images/'))
-            s3_client.upload_file(os.path.join(test_dir, "annotations/instances_default.json"),os.getenv('AWS_BUCKET_NAME'),aws_s3_prefix+dataset_name+"/annotations/instances_default.json")
-
-            for root,dirs,files in os.walk(os.path.join(test_dir, "images")):
-                for file in files:
-                    s3_client.upload_file(os.path.join(test_dir,"images",file),os.getenv('AWS_BUCKET_NAME'),os.path.join(aws_s3_prefix+dataset_name+"/images/", file))
-
+    # dump training data on cloud
+    bucket_name, dataset_name = dump_training_data(int(form_data['project_uid']), db_task, stamp, form_data['dump_format'], cloud_prefix)
+   
     #execute workflow
     configuration = onepanel_authorize()
 
@@ -208,8 +240,8 @@ def create_annotation_model(request, pk):
         namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') # str | 
         params = []
         # params.append(Parameter(name="source", value="https://github.com/onepanelio/Mask_RNN.git"))
-        params.append(Parameter(name="dataset-path", value=aws_s3_prefix+dataset_name))
-        params.append(Parameter(name="bucket-name", value=os.getenv('AWS_BUCKET_NAME')))
+        params.append(Parameter(name="dataset-path", value=cloud_prefix+dataset_name))
+        params.append(Parameter(name="bucket-name", value=bucket_name))
         params.append(Parameter(name='task-name', value=db_task.name))
         # params.append(Parameter(name='num-classes', value=str(num_classes)))
         params.append(Parameter(name='extras', value=json.dumps(args_and_vals).replace(" ","").replace("{","").replace("}","").replace(":","=")))
