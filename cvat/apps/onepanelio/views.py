@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from cvat.apps.authentication.decorators import login_required
 from cvat.apps.onepanelio.models import AuthToken
 from cvat.apps.engine import annotation
+import cvat.apps.dataset_manager.task as DatumaroTask
 from cvat.apps.engine.models import Task as TaskModel
 from cvat.apps.engine.log import slogger
 import cvat.apps.dataset_manager.task as dm
@@ -39,6 +40,34 @@ def onepanel_authorize():
         api_key = { 'Bearer': auth_token})
     configuration.api_key_prefix['Bearer'] = 'Bearer'
     return configuration
+
+
+def authenticate_aws():
+    """ Set appropriate env vars before importing boto3
+
+    """
+    with open("/etc/onepanel/artifactRepository") as file:
+        data = yaml.load(file, Loader=yaml.FullLoader)
+    
+    cloud_provider = list(data.keys())[1]
+
+
+    with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
+        access_key = yaml.load(file, Loader=yaml.FullLoader)
+        
+    with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
+        secret_key = yaml.load(file, Loader=yaml.FullLoader)
+
+    #set env vars
+    os.environ['AWS_ACCESS_KEY_ID'] = access_key
+    os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
+
+    return data[cloud_provider]['bucket'], cloud_provider
+
+def get_available_dump_formats():
+    data = DatumaroTask.get_export_formats()
+    formats = {d['name']:d['tag'] for d in data}
+    return formats
 
 @api_view(['POST'])
 def get_workflow_templates(request):
@@ -106,31 +135,10 @@ def get_object_counts(request, pk):
     data = annotation.get_task_data_custom(pk, request.user)
     return Response(data)
 
-def authenticate_aws():
-    """ Set appropriate env vars before importing boto3
 
-    """
-    with open("/etc/onepanel/artifactRepository") as file:
-        data = yaml.load(file, Loader=yaml.FullLoader)
-    
-    cloud_provider = list(data.keys())[1]
-
-
-    with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
-        access_key = yaml.load(file, Loader=yaml.FullLoader)
-        
-    with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
-        secret_key = yaml.load(file, Loader=yaml.FullLoader)
-
-    #set env vars
-    os.environ['AWS_ACCESS_KEY_ID'] = access_key
-    os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
-
-    return data[cloud_provider]['bucket']
 
 @api_view(['POST'])
 def get_model_keys(request):
-    # db_task = self.get_object()
     form_data = json.loads(request.body.decode('utf-8'))
     bucket_name = authenticate_aws()
     import boto3
@@ -165,52 +173,48 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
 
     # read artifactRepository to find out cloud provider and get access for upload
     
-    bucket_name = authenticate_aws()
+    bucket_name, cloud_provider = authenticate_aws()
     
-    if cloud_provider == "s3":
+    if dump_format not in list(get_available_dump_formats().keys()):
+        dump_format = "cvat_tfrecord"
+
+    with tempfile.TemporaryDirectory() as test_dir:
+
+        project.export(dump_format, test_dir, save_images=True)
+
+        if cloud_provider == "s3":
+            
+            import boto3
+            from botocore.exceptions import ClientError
+
+            #check if datasets folder exists on aws bucket
+            s3_client = boto3.client('s3')
+
+            try:
+                s3_client.head_object(Bucket=bucket_name, Key=cloud_prefix)
+                #add logging
+            except ClientError:
+                # Not found
+                slogger.glob.info("Datasets folder does not exist in the bucket, creating a new one.")
+                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix))
+
+
+            dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_" + dump_format + "_" + stamp
+            for root,dirs,files in os.walk(test_dir):
+                for file in files:
+                    upload_dir = root.replace(test_dir, "")
+                    if upload_dir.startswith("/"):
+                        upload_dir = upload_dir[1:]
+                    s3_client.upload_file(os.path.join(root,file),bucket_name,os.path.join(cloud_prefix,dataset_name, upload_dir, file))
+          
+        elif cloud_provider == "gcs":
+            pass
         
-        import boto3
-        from botocore.exceptions import ClientError
+        elif cloud_provider == "az":
+            pass
 
-        #check if datasets folder exists on aws bucket
-        s3_client = boto3.client('s3')
-
-        try:
-            s3_client.head_object(Bucket=bucket_name, Key=cloud_prefix)
-            #add logging
-        except ClientError:
-            # Not found
-            slogger.glob.info("Datasets folder does not exist in the bucket, creating a new one.")
-            s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix))
-
-        #project_uid is actually a task id
-        with tempfile.TemporaryDirectory() as test_dir:
-
-            if "TFRecord" in dump_format:
-                dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_tfrecords_"+stamp
-                project.export("cvat_tfrecord", test_dir, save_images=True)
-                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix+dataset_name+'/'))
-                s3_client.upload_file(os.path.join(test_dir, 'default.tfrecord'), bucket_name,cloud_prefix+dataset_name+'/default.tfrecord')
-                s3_client.upload_file(os.path.join(test_dir, 'label_map.pbtxt'), bucket_name,cloud_prefix+dataset_name+'/label_map.pbtxt')
-            else:
-                dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_coco_"+stamp
-                project.export("cvat_coco", test_dir, save_images=True)
-                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix+dataset_name+'/annotations/'))
-                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix+dataset_name+'/images/'))
-                s3_client.upload_file(os.path.join(test_dir, "annotations/instances_default.json"),bucket_name,cloud_prefix+dataset_name+"/annotations/instances_default.json")
-
-                for root,dirs,files in os.walk(os.path.join(test_dir, "images")):
-                    for file in files:
-                        s3_client.upload_file(os.path.join(test_dir,"images",file),bucket_name,os.path.join(cloud_prefix+dataset_name+"/images/", file))
-
-    elif cloud_provider == "gcs":
-        pass
-    
-    elif cloud_provider == "az":
-        pass
-
-    else:
-        raise ValueError("Invalid cloud provider! Should be from ['s3','gcs','az']")
+        else:
+            raise ValueError("Invalid cloud provider! Should be from ['s3','gcs','az']")
 
     return bucket_name, dataset_name
 
