@@ -11,5 +11,6 @@ urlpatterns = [
     path('get_object_counts/<int:pk>', views.get_object_counts),
     path('get_base_model', views.get_model_keys),
     path('execute_workflow/<int:pk>', views.create_annotation_model),
-    path('get_workflow_parameters', views.get_workflow_parameters)
+    path('get_workflow_parameters', views.get_workflow_parameters),
+    path('get_available_dump_formats', views.get_available_dump_formats)
 ]

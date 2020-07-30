@@ -73,6 +73,7 @@ def authenticate_cloud_storage():
 
     return data[cloud_provider]['bucket'], cloud_provider
 
+@api_view(['POST'])
 def get_available_dump_formats():
     data = DatumaroTask.get_export_formats()
     formats = {d['name']:d['tag'] for d in data}
