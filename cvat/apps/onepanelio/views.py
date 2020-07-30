@@ -42,7 +42,7 @@ def onepanel_authorize():
     return configuration
 
 
-def authenticate_aws():
+def authenticate_cloud_storage():
     """ Set appropriate env vars before importing boto3
 
     """
@@ -50,17 +50,26 @@ def authenticate_aws():
         data = yaml.load(file, Loader=yaml.FullLoader)
     
     cloud_provider = list(data.keys())[1]
+    if cloud_provider == "s3":
 
+        with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
+            access_key = yaml.load(file, Loader=yaml.FullLoader)
+            
+        with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
+            secret_key = yaml.load(file, Loader=yaml.FullLoader)
 
-    with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
-        access_key = yaml.load(file, Loader=yaml.FullLoader)
-        
-    with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
-        secret_key = yaml.load(file, Loader=yaml.FullLoader)
+        #set env vars
+        os.environ['AWS_ACCESS_KEY_ID'] = access_key
+        os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
 
-    #set env vars
-    os.environ['AWS_ACCESS_KEY_ID'] = access_key
-    os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
+    elif cloud_provider == "gcs":
+        pass
+
+    elif cloud_provider == "az":
+        pass
+
+    else:
+        raise ValueError("Invalid cloud provider. Should be from ['s3', 'gcs', az']")
 
     return data[cloud_provider]['bucket'], cloud_provider
 
@@ -173,10 +182,13 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
 
     # read artifactRepository to find out cloud provider and get access for upload
     
-    bucket_name, cloud_provider = authenticate_aws()
+    bucket_name, cloud_provider = authenticate_cloud_storage()
     
     if dump_format not in list(get_available_dump_formats().keys()):
         dump_format = "cvat_tfrecord"
+
+    dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_" + dump_format + "_" + stamp
+
 
     with tempfile.TemporaryDirectory() as test_dir:
 
@@ -199,7 +211,6 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
                 s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix))
 
 
-            dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_" + dump_format + "_" + stamp
             for root,dirs,files in os.walk(test_dir):
                 for file in files:
                     upload_dir = root.replace(test_dir, "")
@@ -208,7 +219,17 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
                     s3_client.upload_file(os.path.join(root,file),bucket_name,os.path.join(cloud_prefix,dataset_name, upload_dir, file))
           
         elif cloud_provider == "gcs":
-            pass
+            from google.cloud import storage
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(bucket_name)
+
+            for root, dirs, files in os.walk(test_dir):
+                for file in files:
+                    upload_dir = root.replace(test_dir, "")
+                    if upload_dir.startswith("/"):
+                        upload_dir = upload_dir[1:]
+                    blob = bucket.blob(os.path.join(cloud_prefix, dataset_name, upload_dir, stamp))
+                    blob.upload_from_filename(os.path.join(root, file))
         
         elif cloud_provider == "az":
             pass
