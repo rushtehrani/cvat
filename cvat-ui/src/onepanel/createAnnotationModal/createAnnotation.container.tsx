@@ -6,10 +6,11 @@ import React from 'react';
 import { connect } from 'react-redux';
 
 // import ModelRunnerModalComponent from 'components/model-runner-modal/model-runner-modal';
-import ModelNewAnnotationModalComponent from './createAnnotaion.component';
+import ModelNewAnnotationModalComponent from './createAnnotation.component';
 import {
     CombinedState,
 } from 'reducers/interfaces';
+import {WorkflowTemplates} from './interfaces';
 import {
     createAnnotationAction,
     getBaseModelsAsync,
@@ -20,6 +21,7 @@ interface StateToProps {
     taskInstance: any;
     visible: boolean;
     baseModelList: string[];
+    workflowTemplates: WorkflowTemplates[];
 }
 
 interface DispatchToProps {
@@ -34,6 +36,7 @@ function mapStateToProps(state: CombinedState): StateToProps {
         taskInstance: models.activeNewAnnotationTask,
         visible: models.visibleNewAnnotationWindows,
         baseModelList: models.baseModelList,
+        workflowTemplates: models.workflowTemplates,
     };
 }
 
