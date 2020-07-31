@@ -9,7 +9,7 @@ from PIL import Image
 import numpy as np
 
 
-def rectanlge_to_cv_bbox(rectangle_points):
+def rectangle_to_cv_bbox(rectangle_points):
 	"""
 	Convert the CVAT rectangle points (serverside) to a OpenCV rectangle.
 	:param tuple rectangle_points: Tuple of form (x1,y1,x2,y2)
@@ -37,7 +37,6 @@ def make_image_list(jid, start_frame, stop_frame):
 	image_list = image_list.get_frames(image_list.Quality.ORIGINAL)
 	count = 0
 	for img in image_list:
-		# count += 1
 		if count >= start_frame and count <= stop_frame:
 			pil_image = Image.open(img[0])
 			opencvImage = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
@@ -89,7 +88,7 @@ class RectangleTracker:
 		# and init the tracker with the bounding box from the user given shape
 		images = make_image_list(jobid, start_frame, stop_frame)
 		img0 = next(images)[1]
-		bbox = rectanlge_to_cv_bbox(start_shape)
+		bbox = rectangle_to_cv_bbox(start_shape)
 		no_error = self._tracker.init(img0, bbox)
 
 		#Generated shapes

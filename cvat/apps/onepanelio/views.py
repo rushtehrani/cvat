@@ -26,7 +26,6 @@ import onepanel.core.api
 from onepanel.core.api.rest import ApiException
 from onepanel.core.api.models import Parameter
 
-from pprint import pprint
 from rest_framework.decorators import api_view
 import yaml
 
@@ -91,7 +90,6 @@ def get_workflow_templates(request):
     page = 1 # int |  (optional)
     try:
         api_response = api_instance.list_workflow_templates(namespace, page_size=page_size, page=page)
-        pprint(api_response)
         return JsonResponse(api_response.to_dict())
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
@@ -115,7 +113,6 @@ def get_workflow_parameters(request):
         namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')  # str |
     try:
         api_response = api_instance.get_workflow_template2(namespace, uid=workflow_uid, version=str(workflow_version))
-        pprint(api_response)
         return JsonResponse(api_response.to_dict())
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
@@ -133,7 +130,6 @@ def get_node_pool(request):
     
     try:
         api_response = api_instance.get_config()
-        pprint(api_response)
         return JsonResponse(api_response.to_dict()['node_pool']['options'])
         
     except ApiException as e:

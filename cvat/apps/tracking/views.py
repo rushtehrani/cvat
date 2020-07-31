@@ -17,8 +17,6 @@ from cvat.apps.engine.annotation import put_task_data,patch_task_data
 from .tracker import RectangleTracker
 from cvat.apps.engine.log import slogger
 
-
-
 def convert_to_cvat_format(data):
 	result = {
 		"tracks": [],
@@ -49,7 +47,6 @@ def convert_to_cvat_format(data):
 @permission_required(perm=['engine.task.access'], raise_exception=True)
 def tracking(request, tid):
 	data = json.loads(request.body.decode('utf-8'))
-	# slogger.glob.info("data {}".format(data))
 	slogger.glob.info("tracking payload {}".format(data))
 	tracking_job = data['trackingJob']
 	job_id = data['jobId']
