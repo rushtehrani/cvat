@@ -145,12 +145,15 @@ def get_object_counts(request, pk):
     data = annotation.get_task_data_custom(pk, request.user)
     return Response(data)
 
-
-
+   
 @api_view(['POST'])
 def get_model_keys(request):
     form_data = json.loads(request.body.decode('utf-8'))
-    bucket_name = authenticate_aws()
+    bucket_name = authenticate_cloud_storage()
+    # all_models = [x for x in os.listdir("/home/django/share/models") if os.path.isdir(x)]
+    # specific_models = [for x in all_models if x in form_data['uid']]
+    # return specific_models
+
     import boto3
     from botocore.exceptions import ClientError
     S3 = boto3.client('s3')
