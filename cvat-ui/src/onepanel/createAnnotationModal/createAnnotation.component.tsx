@@ -405,7 +405,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                                 }
                                             })}
                                         />
-                                    }
+                                    }     
                                 </Col>
                             </Row>
                         )

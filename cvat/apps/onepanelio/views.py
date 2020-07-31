@@ -76,8 +76,10 @@ def authenticate_cloud_storage():
 @api_view(['POST'])
 def get_available_dump_formats(request):
     data = DatumaroTask.get_export_formats()
-    formats = {d['name']:d['tag'] for d in data}
-    return JsonResponse(formats)
+    formats = []
+    for d in data:
+        formats.append({'name':d['name'], 'tag':d['tag']})
+    return JsonResponse({'dump_formats': formats})
 
 @api_view(['POST'])
 def get_workflow_templates(request):
@@ -104,7 +106,7 @@ def get_workflow_parameters(request):
 
     """
     # read workflow_uid and workflow_version from request payload
-
+    form_data = json.loads(request.body.decode('utf-8'))
 
     configuration = onepanel_authorize()
     # Enter a context with an instance of the API client
@@ -113,8 +115,8 @@ def get_workflow_parameters(request):
         api_instance = onepanel.core.api.WorkflowTemplateServiceApi(api_client)
         namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')  # str |
     try:
-        api_response = api_instance.get_workflow_template2(namespace, uid=workflow_uid, version=str(workflow_version))
-        return JsonResponse(api_response.to_dict())
+        api_response = api_instance.get_workflow_template2(namespace, uid=form_data['uid'], version=form_data['version'])
+        return JsonResponse({'parameters':api_response.to_dict()['parameters']})
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
 
@@ -131,7 +133,7 @@ def get_node_pool(request):
     
     try:
         api_response = api_instance.get_config()
-        return JsonResponse(api_response.to_dict()['node_pool']['options'])
+        return JsonResponse({'node_pool':api_response.to_dict()['node_pool']})
         
     except ApiException as e:
         print("Exception when calling ConfigServiceApi->get_config: %s\n" % e)
