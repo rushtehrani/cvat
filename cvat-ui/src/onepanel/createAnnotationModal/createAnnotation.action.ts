@@ -1,4 +1,4 @@
-import { createAction, ThunkAction, ActionUnion } from './interfaces';
+import { createAction, ThunkAction, ActionUnion, WorkflowTemplates } from './interfaces';
 
 import getCore from 'cvat-core-wrapper';
 
@@ -10,12 +10,13 @@ export enum CreateAnnotationActionTypes {
     CLOSE_NEW_ANNOTATION_DIALOG = 'CLOSE_NEW_ANNOTATION_DIALOG',
     GET_BASE_MODEL = 'GET_BASE_MODEL',
 }
-export type CretaeAnnotationActions = ActionUnion<typeof createAnnotationAction>;
+export type CreateAnnotationActions = ActionUnion<typeof createAnnotationAction>;
 
 export const createAnnotationAction = {
-    openNewAnnotationDialog: (taskInstance: any) => createAction(
+    openNewAnnotationDialog: (taskInstance: any, workflowTemplate: WorkflowTemplates[]) => createAction(
         CreateAnnotationActionTypes.OPEN_NEW_ANNOTATION_DIALOG, { 
             taskInstance,
+            workflowTemplate
          },
     ),
     closeNewAnnotationDialog: () => createAction(CreateAnnotationActionTypes.CLOSE_NEW_ANNOTATION_DIALOG),
@@ -42,6 +43,29 @@ export function getBaseModelsAsync(taskInstance: any, modelType: string) : Thunk
             dispatch(createAnnotationAction.getBaseModelList(keys || []));
         } catch (e) {
 
+        }
+    }
+}
+
+export function getWorkflowTemplateAsync(taskInstance: any) : ThunkAction {
+    return async(dispatch, getState): Promise<void> => {
+        try {
+            const response =  await core.server.request(
+                `${baseURL}/onepanelio/get_workflow_templates`, {
+                    method: 'POST',
+                }
+            )
+            if(response.count) {
+                const workflowTemplates: WorkflowTemplates[] = response.workflow_templates.map((workflow: any) => (
+                    {
+                        uid: workflow.uid, 
+                        version: workflow.version == "none" || workflow.version == null ? "0" : workflow.version
+                    }
+                ))
+                dispatch(createAnnotationAction.openNewAnnotationDialog(taskInstance, workflowTemplates));
+            }
+        } catch (e) {
+            console.log("error getting workflow template");
         }
     }
 }

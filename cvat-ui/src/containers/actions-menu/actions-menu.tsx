@@ -14,7 +14,7 @@ import {
 } from 'reducers/interfaces';
 
 import { modelsActions } from 'actions/models-actions';
-import { createAnnotationAction } from 'onepanel/createAnnotationModal/createAnnotation.action';
+import { getWorkflowTemplateAsync } from 'onepanel/createAnnotationModal/createAnnotation.action';
 import {
     dumpAnnotationsAsync,
     loadAnnotationsAsync,
@@ -107,7 +107,7 @@ function mapDispatchToProps(dispatch: any): DispatchToProps {
             dispatch(modelsActions.showRunModelDialog(taskInstance));
         },
         openNewAnnotationModel: (taskInstance: any): void => {
-            dispatch(createAnnotationAction.openNewAnnotationDialog(taskInstance));
+            dispatch(getWorkflowTemplateAsync(taskInstance));
         },
     };
 }

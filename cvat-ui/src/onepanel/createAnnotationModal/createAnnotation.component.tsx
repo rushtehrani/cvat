@@ -20,11 +20,13 @@ const { TextArea } = Input;
 
 import getCore from 'cvat-core-wrapper';
 import { getMachineNames, getModelNames } from './createAnnotation.constant';
+import { WorkflowTemplates, WorkflowParameters, NodePoolParameters, DumpFormats } from './interfaces';
 
 interface Props {
     visible: boolean;
     taskInstance: any;
     baseModelList: string[];
+    workflowTemplates: WorkflowTemplates[];
     closeDialog(): void;
     getBaseModelList(taskInstance: any, modelType: string): void;
 }
@@ -40,6 +42,14 @@ interface State {
     argumentS: string;
     selectedBaseModel: string;
     executingAnnotation: boolean;
+
+    workflowTemplate: WorkflowTemplates | undefined;
+    allWorkflowParameters: WorkflowParameters[];
+    selectedWorkflowParam: any;
+    allSysNodePools: NodePoolParameters[];
+    selectedNodePool: NodePoolParameters | undefined;
+    allDumpFormats: DumpFormats[];
+    selectedDumpFormat: DumpFormats | undefined;
 }
 
 interface CreateAnnotationSubmitData {
@@ -69,6 +79,18 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             argumentS: '',
             selectedBaseModel: '',
             executingAnnotation: false,
+
+
+            workflowTemplate: {
+                uid: "",
+                version: ""
+            },
+            allWorkflowParameters: [],
+            selectedWorkflowParam: {},
+            allSysNodePools: [],
+            selectedNodePool: undefined,
+            allDumpFormats: [],
+            selectedDumpFormat: undefined,
         };
     }
 
@@ -140,7 +162,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         //     });
 
         try {
-            await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
+            await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/onepanelio/create_annotation_model`, {
                 method: 'POST',
                 data: formData,
                 // form: formData,
@@ -149,19 +171,23 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 },
             })
             notification.info({
-                message: 'Create new annotation',
+                message: 'Execute Workflow',
                 description: `${selectedModelType} workflow has been executed. Please check the workflow for logs.`,
             });
         } catch (error) {
-            notification.error({
-                message: 'Create New Annotation failed.',
-                description: `Create New Annotation failed (Error code: ${error.code}). Please try again later`,
-                duration: 5,
-            });
+            this.showErrorNotification(error);
         } finally {
             closeDialog();
             return true;
         }
+    }
+
+    private showErrorNotification = (error: any): void => {
+        notification.error({
+            message: 'Execute Workflow failed.',
+            description: `Execute Workflow failed (Error code: ${error.code}). Please try again later`,
+            duration: 5,
+        });
     }
 
     private onSubmitNotifications(count: number): Boolean {
@@ -195,7 +221,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         );
         if (count == 0) {
             notification.error({
-                message: 'Could not create new annotation.',
+                message: 'Could not Execute Workflow.',
                 description: `You don't have any annotated images.
                     Please annotate few images before training your model.`,
             });
@@ -217,92 +243,232 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         return true;
     }
 
-    private async handleSubmit(): Promise<Boolean> {
-        const baseUrl: string = core.config.backendAPI.slice(0, -7);
-        const {
-            taskInstance,
-        } = this.props;
-        const {
-            selectedModelType,
-        } = this.state;
-        // let resp1 = await core.server.request(`${baseUrl}/api/v1/jobs/${taskInstance.id}/get_object_counts`, {
-        //     method: 'GET',
+    private async handleSubmit(): Promise<void> {
+        console.log(this.state);
+
+        // const baseUrl: string = core.config.backendAPI.slice(0, -7);
+        // const {
+        //     taskInstance,
+        // } = this.props;
+        // const {
+        //     selectedModelType,
+        // } = this.state;
+        // // let resp1 = await core.server.request(`${baseUrl}/api/v1/jobs/${taskInstance.id}/get_object_counts`, {
+        // //     method: 'GET',
+        // // });
+        // let resp = await core.server.request(`${baseUrl}/api/v1/tasks/${taskInstance.id}/onepanelio/get_object_counts`, {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //     },
         // });
-        let resp = await core.server.request(`${baseUrl}/onepanelio/get_object_counts/${taskInstance.id}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-        const requiredShape: String = selectedModelType === "MASK ZIP 1.0" ? "polygon" : "rectangle";
-        const {
-            shapes,
-            tracks,
-        } = resp;
+        // const requiredShape: String = selectedModelType === "MASK ZIP 1.0" ? "polygon" : "rectangle";
+        // const {
+        //     shapes,
+        //     tracks,
+        // } = resp;
 
-        if (tracks.length) {
-            this.onCreateNewAnnotation();
-            return true;
-        }
+        // if (tracks.length) {
+        //     this.onCreateNewAnnotation();
+        //     return true;
+        // }
 
-        let count = shapes.reduce((acc: number, shape: any) => {
-            if (shape.type === requiredShape) {
-                acc++;
-            }
-            return acc;
-        }, 0)
-        return this.onSubmitNotifications(count);
+        // let count = shapes.reduce((acc: number, shape: any) => {
+        //     if (shape.type === requiredShape) {
+        //         acc++;
+        //     }
+        //     return acc;
+        // }, 0)
+        // return this.onSubmitNotifications(count);
     }
 
-    private onArgumenstChange = (event: any): void => {
+    private onWorkflowTemplateChange = async (value: string) => {
         const {
-            target: {
-                value,
-            },
-        } = event;
+            taskInstance,
+            workflowTemplates,
+        } = this.props;
+
+        const data = workflowTemplates.find(workflow => workflow.uid === value)
         this.setState({
-            argumentS: value,
+            workflowTemplate: data
         })
-    };
+        if (value) {
+            const baseUrl: string = core.config.backendAPI.slice(0, -7);
+            try {
+                const response = await core.server.request(`${baseUrl}/onepanelio/get_workflow_parameters`, {
+                    method: 'POST',
+                    data,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                const { parameters } = response;
+                const sysNodePoolParam = parameters.find((param: WorkflowParameters) => param.name === "sys-node-pool");
+
+                if (sysNodePoolParam) {
+                    const nodePoolResp = await core.server.request(`${baseUrl}/onepanelio/get_node_pool`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    let { node_pool } = nodePoolResp;
+                    this.setState({
+                        allSysNodePools: node_pool.options
+                    });
+                }
+
+                const dumpFormats = await core.server.request(`${baseUrl}/onepanelio/get_available_dump_formats`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                this.setState({
+                    allDumpFormats: dumpFormats.dump_formats
+                })
+
+                this.setState({
+                    allWorkflowParameters: response.parameters,
+                });
+            } catch (error) {
+                this.showErrorNotification(error);
+            }
+        }
+    }
 
     private renderModelSelector(): JSX.Element {
 
         const {
-            taskInstance,
-            baseModelList,
-            getBaseModelList,
+            workflowTemplates,
         } = this.props
 
         return (
             <React.Fragment>
                 <Row type='flex' align='middle'>
-                    <Col span={6}>Select Model Type:</Col>
+                    <Col span={6}>Select workflow template:</Col>
                     <Col span={17}>
                         <Select
-                            placeholder='Select a model type'
+                            placeholder='Select a wrokflow template'
                             style={{ width: '100%' }}
-                            onChange={(value: string): void => {
-                                this.setState({
-                                    selectedModelType: value,
-                                    showModelsOptions: value === "TFRecord ZIP 1.0",
-                                })
-                                if (value) {
-                                    const modelType = value === "TFRecord ZIP 1.0" ? "tensorflow" : "maskrcnn";
-                                    getBaseModelList(taskInstance, modelType);
-                                }
-                            }
-                            }
+                            onChange={this.onWorkflowTemplateChange.bind(this)}
                         >
-                            <Select.Option value="TFRecord ZIP 1.0">
-                                Tensorflow OD API
-                            </Select.Option>
-                            <Select.Option value="MASK ZIP 1.0">
-                                MaskRCNN
-                            </Select.Option>
+                            {
+                                workflowTemplates.map((workflow: WorkflowTemplates) =>
+                                    <Select.Option value={workflow.uid} key={workflow.uid}>
+                                        {workflow.uid}
+                                    </Select.Option>
+                                )
+                            }
                         </Select>
                     </Col>
                 </Row>
+
                 {
+                    this.state.allWorkflowParameters.map((workflowParams, index) => {
+                        return (
+                            <Row type='flex' align='middle' key={index}>
+                                <Col span={6}>{workflowParams.name}:</Col>
+                                <Col span={17}>
+                                    {
+                                        workflowParams.type.toLowerCase() === "select" &&
+                                        <Select
+                                            placeholder='Select a wrokflow parameter'
+                                            style={{ width: '100%' }}
+                                            onChange={(value: any) => this.setState({
+                                                selectedWorkflowParam: {
+                                                    ...this.state.selectedWorkflowParam,
+                                                    [value.value]: value.name
+                                                }
+                                            })}
+                                        >
+                                            {
+                                                workflowParams.options.map((param: any) =>
+                                                    <Select.Option value={param} key={param.value}>
+                                                        {param.name}
+                                                    </Select.Option>
+                                                )
+                                            }
+                                        </Select>
+                                    }
+                                    {
+                                        workflowParams.type.toLowerCase() === "textarea" &&
+                                        <TextArea
+                                            autoSize={{ minRows: 1, maxRows: 4 }}
+                                            name={workflowParams.name}
+                                            onBlur={(event) => this.setState({
+                                                selectedWorkflowParam: {
+                                                    ...this.state.selectedWorkflowParam,
+                                                    [event.target.name]: event.target.value
+                                                }
+                                            })}
+                                        />
+                                    }
+                                </Col>
+                            </Row>
+                        )
+                    })
+                }
+
+                {
+                    this.state.allSysNodePools.length ?
+                    <Row type='flex' align='middle'>
+                        <Col span={6}>Select system node pool:</Col>
+                        <Col span={17}>
+                            <Select
+                                placeholder='Select a system node pool'
+                                style={{ width: '100%' }}
+                                onChange={(value) => {
+                                    const selectedNode = this.state.allSysNodePools.find(node => node.value === value);
+                                    this.setState({
+                                        selectedNodePool: selectedNode
+                                    })
+                                }}
+                            >
+                                {
+                                    this.state.allSysNodePools.map((nodePool: NodePoolParameters) =>
+                                        <Select.Option value={nodePool.value}>
+                                            {nodePool.name}
+                                        </Select.Option>
+                                    )
+                                }
+                            </Select>
+                        </Col>
+                    </Row> : null
+                }
+
+                {
+                    this.state.allDumpFormats.length ?
+                    <Row type='flex' align='middle'>
+                        <Col span={6}>Select dump format:</Col>
+                        <Col span={17}>
+                            <Select
+                                placeholder='Select a dump format'
+                                style={{ width: '100%' }}
+                                onChange={(value) => {
+                                    const selectedFormat = this.state.allDumpFormats.find(format => format.tag === value);
+                                    this.setState({
+                                        selectedDumpFormat: selectedFormat
+                                    })
+                                }}
+                            >
+                                {
+                                    this.state.allDumpFormats.map((format: DumpFormats) =>
+                                        <Select.Option value={format.tag}>
+                                            {format.name}
+                                        </Select.Option>
+                                    )
+                                }
+                            </Select>
+                        </Col>
+                    </Row> : null
+                }
+
+
+
+                {/* {
                     this.state.showModelsOptions &&
                     <Row type='flex' align='middle'>
                         <Col span={6}>Select Model:</Col>
@@ -413,7 +579,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                             )
                         </div>
                     </Col>
-                </Row>
+                </Row> */}
             </React.Fragment>
         );
     }
@@ -460,7 +626,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             }}>
                 Cancel
             </Button>,
-            <Button key="submit" type="primary" disabled={!!!this.state.selectedModelType} onClick={(): void => {
+            <Button key="submit" type="primary" disabled={!!!this.state.workflowTemplate!.uid} onClick={(): void => {
                 this.handleSubmit();
             }}>
                 Submit
@@ -483,7 +649,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 <Modal
                     closable={false}
                     footer={this.footerComponent()}
-                    title='Create new annotation'
+                    title='Execute Workflow'
                     visible
                     width="50%"
                 >

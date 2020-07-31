@@ -165,6 +165,10 @@ export interface ModelsState {
     visibleNewAnnotationWindows: boolean;
     activeNewAnnotationTask: any;
     baseModelList: string[];
+    workflowTemplates: {
+        uid: string;
+        version: string;
+    }[];
 }
 
 export interface CsvModelFiles {
