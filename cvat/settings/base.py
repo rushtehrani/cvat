@@ -228,6 +228,7 @@ LOGIN_REDIRECT_URL = '/'
 AUTH_LOGIN_NOTE = '<p>Have not registered yet? <a href="/auth/register">Register here</a>.</p>'
 
 AUTHENTICATION_BACKENDS = [
+    'cvat.apps.onepanelio.backends.OnepanelIOBackend',
     'rules.permissions.ObjectPermissionBackend',
     'django.contrib.auth.backends.ModelBackend'
 ]
