@@ -51,10 +51,10 @@ def authenticate_cloud_storage():
     cloud_provider = list(data.keys())[1]
     if cloud_provider == "s3":
 
-        with open("/etc/onepanel/artifactRepositoryS3AccessKey") as file:
+        with open(os.path.join("/etc/onepanel", data[cloud_provider]['accessKeySecret']['key'])) as file:
             access_key = yaml.load(file, Loader=yaml.FullLoader)
             
-        with open("/etc/onepanel/artifactRepositoryS3SecretKey") as file:
+        with open(os.path.join("/etc/onepanel", data[cloud_provider]['secretKeySecret']['key'])) as file:
             secret_key = yaml.load(file, Loader=yaml.FullLoader)
 
         #set env vars
@@ -62,7 +62,8 @@ def authenticate_cloud_storage():
         os.environ['AWS_SECRET_ACCESS_KEY'] = secret_key
 
     elif cloud_provider == "gcs":
-        pass
+        #set env vars
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = os.path.join("/etc/onepanel", data[cloud_provider]['serviceAccountKeySecret']['key'])
 
     elif cloud_provider == "az":
         pass
@@ -73,10 +74,10 @@ def authenticate_cloud_storage():
     return data[cloud_provider]['bucket'], cloud_provider
 
 @api_view(['POST'])
-def get_available_dump_formats():
+def get_available_dump_formats(request):
     data = DatumaroTask.get_export_formats()
     formats = {d['name']:d['tag'] for d in data}
-    return formats
+    return JsonResponse(formats)
 
 @api_view(['POST'])
 def get_workflow_templates(request):
@@ -175,7 +176,7 @@ def get_model_keys(request):
 
 
 
-def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
+def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
 
     project = dm.TaskProject.from_task(
         TaskModel.objects.get(pk=uid), db_task.owner.username)
@@ -184,7 +185,9 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
     
     bucket_name, cloud_provider = authenticate_cloud_storage()
     
-    if dump_format not in list(get_available_dump_formats().keys()):
+    data = DatumaroTask.get_export_formats()
+    formats = {d['name']:d['tag'] for d in data}
+    if dump_format not in formats:
         dump_format = "cvat_tfrecord"
 
     dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_" + dump_format + "_" + stamp
@@ -228,7 +231,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix):
                     upload_dir = root.replace(test_dir, "")
                     if upload_dir.startswith("/"):
                         upload_dir = upload_dir[1:]
-                    blob = bucket.blob(os.path.join(cloud_prefix, dataset_name, upload_dir, stamp))
+                    blob = bucket.blob(os.path.join(cloud_prefix, dataset_name, upload_dir, file))
                     blob.upload_from_filename(os.path.join(root, file))
         
         elif cloud_provider == "az":
@@ -285,7 +288,7 @@ def create_annotation_model(request, pk):
     cloud_prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+ '/annotation-dump/'
 
     # dump training data on cloud
-    bucket_name, dataset_name = dump_training_data(int(form_data['project_uid']), db_task, stamp, form_data['dump_format'], cloud_prefix)
+    bucket_name, dataset_name = dump_training_data(int(form_data['project_uid']), db_task, stamp, form_data['dump_format'], cloud_prefix, request)
    
     #execute workflow
     configuration = onepanel_authorize()

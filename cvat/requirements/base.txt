@@ -52,3 +52,4 @@ patool==1.12
 boto3
 opencv-contrib-python
 onepanel-sdk
+google-cloud-storage
