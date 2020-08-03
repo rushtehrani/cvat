@@ -213,10 +213,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         let finalPayload: ExecuteWorkflowPayload = {
             workflow_template: workflowTemplate!.uid || "",
             parameters: selectedWorkflowParam,
-            dump_format: selectedDumpFormat || null,
+            dump_format: selectedDumpFormat.tag || null,
         }
         if(selectedNodePool) {
-            finalPayload.parameters["sys_node_pool"] = selectedNodePool;
+            finalPayload.parameters["sys-node-pool"] = selectedNodePool.value;
         }
 
         const baseUrl: string = core.config.backendAPI.slice(0, -7);

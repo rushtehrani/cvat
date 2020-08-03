@@ -65,7 +65,7 @@ export function getWorkflowTemplateAsync(taskInstance: any) : ThunkAction {
                 dispatch(createAnnotationAction.openNewAnnotationDialog(taskInstance, workflowTemplates));
             }
         } catch (e) {
-            console.log("error getting workflow template");
+            console.log("Error getting workflow template");
         }
     }
 }
