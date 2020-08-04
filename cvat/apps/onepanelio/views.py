@@ -30,17 +30,6 @@ from rest_framework.decorators import api_view
 import yaml
 
 
-
-def onepanel_authorize():
-    # auth_token = AuthToken.get_auth_token(request)
-    auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
-    configuration = onepanel.core.api.Configuration(
-        host = os.getenv('ONEPANEL_API_URL'),
-        api_key = { 'Bearer': auth_token})
-    configuration.api_key_prefix['Bearer'] = 'Bearer'
-    return configuration
-
-
 def authenticate_cloud_storage():
     """ Set appropriate env vars before importing boto3
 
@@ -83,7 +72,12 @@ def get_available_dump_formats(request):
 
 @api_view(['POST'])
 def get_workflow_templates(request):
-    configuration = onepanel_authorize()
+    auth_token = AuthToken.get_auth_token(request)
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    configuration = onepanel.core.api.Configuration(
+        host = os.getenv('ONEPANEL_API_URL'),
+        api_key = { 'Bearer': auth_token})
+    configuration.api_key_prefix['Bearer'] = 'Bearer'
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
@@ -108,7 +102,12 @@ def get_workflow_parameters(request):
     # read workflow_uid and workflow_version from request payload
     form_data = json.loads(request.body.decode('utf-8'))
 
-    configuration = onepanel_authorize()
+    auth_token = AuthToken.get_auth_token(request)
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    configuration = onepanel.core.api.Configuration(
+        host = os.getenv('ONEPANEL_API_URL'),
+        api_key = { 'Bearer': auth_token})
+    configuration.api_key_prefix['Bearer'] = 'Bearer'
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
@@ -124,7 +123,12 @@ def get_workflow_parameters(request):
 
 @api_view(['POST'])
 def get_node_pool(request):
-    configuration = onepanel_authorize()
+    auth_token = AuthToken.get_auth_token(request)
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    configuration = onepanel.core.api.Configuration(
+        host = os.getenv('ONEPANEL_API_URL'),
+        api_key = { 'Bearer': auth_token})
+    configuration.api_key_prefix['Bearer'] = 'Bearer'
 
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
@@ -266,7 +270,12 @@ def create_annotation_model(request, pk):
     bucket_name, dataset_name = dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], cloud_prefix, request)
    
     #execute workflow
-    configuration = onepanel_authorize()
+    auth_token = AuthToken.get_auth_token(request)
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    configuration = onepanel.core.api.Configuration(
+        host = os.getenv('ONEPANEL_API_URL'),
+        api_key = { 'Bearer': auth_token})
+    configuration.api_key_prefix['Bearer'] = 'Bearer'
 
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
