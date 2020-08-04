@@ -5,7 +5,6 @@
 from __future__ import print_function
 
 import os, json
-from tempfile import mkstemp
 import tempfile
 from django.http import JsonResponse
 from django.http import HttpResponse, HttpResponseNotFound
@@ -17,18 +16,22 @@ from cvat.apps.engine import annotation
 import cvat.apps.dataset_manager.task as DatumaroTask
 from cvat.apps.engine.models import Task as TaskModel
 from cvat.apps.engine.log import slogger
-import cvat.apps.dataset_manager.task as dm
 from rest_framework import status
-
-import time
 from datetime import datetime
 import onepanel.core.api
 from onepanel.core.api.rest import ApiException
 from onepanel.core.api.models import Parameter
-
 from rest_framework.decorators import api_view
 import yaml
 
+def onepanel_authorize(request):
+    auth_token = AuthToken.get_auth_token(request)
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    configuration = onepanel.core.api.Configuration(
+        host = os.getenv('ONEPANEL_API_URL'),
+        api_key = { 'Bearer': auth_token})
+    configuration.api_key_prefix['Bearer'] = 'Bearer'
+    return configuration
 
 def authenticate_cloud_storage():
     """ Set appropriate env vars before importing boto3
@@ -79,12 +82,9 @@ def get_available_dump_formats(request):
 
 @api_view(['POST'])
 def get_workflow_templates(request):
-    auth_token = AuthToken.get_auth_token(request)
-    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
-    configuration = onepanel.core.api.Configuration(
-        host = os.getenv('ONEPANEL_API_URL'),
-        api_key = { 'Bearer': auth_token})
-    configuration.api_key_prefix['Bearer'] = 'Bearer'
+
+    configuration = onepanel_authorize(request)
+    
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
@@ -109,12 +109,8 @@ def get_workflow_parameters(request):
     # read workflow_uid and workflow_version from request payload
     form_data = json.loads(request.body.decode('utf-8'))
 
-    auth_token = AuthToken.get_auth_token(request)
-    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
-    configuration = onepanel.core.api.Configuration(
-        host = os.getenv('ONEPANEL_API_URL'),
-        api_key = { 'Bearer': auth_token})
-    configuration.api_key_prefix['Bearer'] = 'Bearer'
+    configuration = onepanel_authorize(request)
+
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
@@ -130,12 +126,7 @@ def get_workflow_parameters(request):
 
 @api_view(['POST'])
 def get_node_pool(request):
-    auth_token = AuthToken.get_auth_token(request)
-    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
-    configuration = onepanel.core.api.Configuration(
-        host = os.getenv('ONEPANEL_API_URL'),
-        api_key = { 'Bearer': auth_token})
-    configuration.api_key_prefix['Bearer'] = 'Bearer'
+    configuration = onepanel_authorize(request)
 
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
@@ -154,43 +145,53 @@ def get_object_counts(request, pk):
     data = annotation.get_task_data_custom(pk, request.user)
     return Response(data)
 
-   
+@api_view(['POST'])
+def generate_output_name(request, pk):
+    form_data = json.loads(request.body.decode('utf-8'))
+    time = datetime.now()
+    stamp = time.strftime("%m%d%Y%H%M%S")
+    db_task = TaskModel.objects.get(pk=pk)
+    dir_name = db_task.name + '_' + form_data['uid'] + '_' + stamp
+    prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') + '/workflow-data/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output')
+    output = prefix + '/' + dir_name + '/'
+    return Response({'name':output})
+
 @api_view(['POST'])
 def get_model_keys(request):
     form_data = json.loads(request.body.decode('utf-8'))
-    bucket_name = authenticate_cloud_storage()
-    # all_models = [x for x in os.listdir("/home/django/share/models") if os.path.isdir(x)]
-    # specific_models = [for x in all_models if x in form_data['uid']]
-    # return Response({'keys':specific_models})
+    # bucket_name = authenticate_cloud_storage()
+    all_models = [x for x in os.listdir("/home/django/share/output") if os.path.isdir("/home/django/share/output/"+x)]
+    specific_models = [x for x in all_models if form_data['uid'] in x]
+    return Response({'keys':specific_models})
 
-    import boto3
-    from botocore.exceptions import ClientError
-    S3 = boto3.client('s3')
-    paginator = S3.get_paginator('list_objects_v2')
-    keys = set()
-    for page in paginator.paginate(Bucket=bucket_name, Prefix=os.getenv('AWS_S3_PREFIX','datesets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'):
-        try:
-            contents = page['Contents']
-        except KeyError as e:
-            wlogger.warning("An exception occurred. {}".format(e))
-            break
+    # import boto3
+    # from botocore.exceptions import ClientError
+    # S3 = boto3.client('s3')
+    # paginator = S3.get_paginator('list_objects_v2')
+    # keys = set()
+    # for page in paginator.paginate(Bucket=bucket_name, Prefix=os.getenv('AWS_S3_PREFIX','datesets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'):
+    #     try:
+    #         contents = page['Contents']
+    #     except KeyError as e:
+    #         wlogger.warning("An exception occurred. {}".format(e))
+    #         break
 
-        for cont in contents:
-            key = cont['Key']
-            if "models" in key and "saved_model" not in key and "logs" not in key:
-                if form_data['model_type'] == "tensorflow":
-                    if "tfod" in key:
-                        keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
-                else:
-                    if "maskrcnn" in key:
-                        keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
-    return Response({'keys':keys})
+    #     for cont in contents:
+    #         key = cont['Key']
+    #         if "models" in key and "saved_model" not in key and "logs" not in key:
+    #             if form_data['model_type'] == "tensorflow":
+    #                 if "tfod" in key:
+    #                     keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
+    #             else:
+    #                 if "maskrcnn" in key:
+    #                     keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
+    # return Response({'keys':keys})
 
 
 
 def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
 
-    project = dm.TaskProject.from_task(
+    project = DatumaroTask.TaskProject.from_task(
         TaskModel.objects.get(pk=uid), db_task.owner.username)
 
     # read artifactRepository to find out cloud provider and get access for upload
@@ -276,13 +277,7 @@ def create_annotation_model(request, pk):
     # dump training data on cloud
     bucket_name, dataset_name = dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], cloud_prefix, request)
    
-    #execute workflow
-    auth_token = AuthToken.get_auth_token(request)
-    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
-    configuration = onepanel.core.api.Configuration(
-        host = os.getenv('ONEPANEL_API_URL'),
-        api_key = { 'Bearer': auth_token})
-    configuration.api_key_prefix['Bearer'] = 'Bearer'
+    configuration = onepanel_authorize(request)
 
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
