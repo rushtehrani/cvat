@@ -316,7 +316,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     <Col span={6}>Select workflow template:</Col>
                     <Col span={17}>
                         <Select
-                            placeholder='Select a wrokflow template'
+                            placeholder='Select a workflow template'
                             style={{ width: '100%' }}
                             onChange={this.onWorkflowTemplateChange.bind(this)}
                         >
@@ -340,7 +340,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                     {
                                         workflowParams.type && workflowParams.type.toLowerCase() === "select.select" ?
                                             <Select
-                                                placeholder='Select a wrokflow parameter'
+                                                placeholder='Select a workflow parameter'
                                                 style={{ width: '100%' }}
                                                 onChange={(value: any) => this.setState({
                                                     selectedWorkflowParam: {

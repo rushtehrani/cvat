@@ -37,7 +37,14 @@ def authenticate_cloud_storage():
     with open("/etc/onepanel/artifactRepository") as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
     
-    cloud_provider = list(data.keys())[1]
+    cloud_provider = None
+    if "s3" in list(data.keys()):  
+        cloud_provider = "s3"
+    elif "gcs" in list(data.keys()):
+        cloud_provider = "gcs"
+    elif "az" in list(data.keys()):
+        cloud_provider = "az"
+
     if cloud_provider == "s3":
 
         with open(os.path.join("/etc/onepanel", data[cloud_provider]['accessKeySecret']['key'])) as file:
