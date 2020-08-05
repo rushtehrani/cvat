@@ -20,7 +20,10 @@ const { TextArea } = Input;
 
 import getCore from 'cvat-core-wrapper';
 import { getMachineNames, getModelNames } from './createAnnotation.constant';
-import { WorkflowTemplates, WorkflowParameters, NodePoolParameters, DumpFormats, NodePoolResponse, ExecuteWorkflowPayload } from './interfaces';
+import {
+    WorkflowTemplates, WorkflowParameters, NodePoolParameters,
+    DumpFormats, NodePoolResponse, ExecuteWorkflowPayload, DefaultSysParams
+} from './interfaces';
 
 interface Props {
     visible: boolean;
@@ -33,6 +36,7 @@ interface Props {
 
 interface State {
     executingAnnotation: boolean;
+    getingParameters: boolean;
     workflowTemplate: WorkflowTemplates | undefined;
     allWorkflowParameters: WorkflowParameters[];
     selectedWorkflowParam: any;
@@ -41,6 +45,10 @@ interface State {
     allDumpFormats: DumpFormats[];
     selectedDumpFormat: DumpFormats | undefined;
     defaultSysNodePoolVal: string;
+    sysOutputPath: DefaultSysParams;
+    sysAnnotationPath: DefaultSysParams;
+    allSysFinetuneCheckpoint: DefaultSysParams;
+    selectedFinetuneCheckpoint: string | null;
 }
 
 interface CreateAnnotationSubmitData {
@@ -59,26 +67,47 @@ const models = getModelNames()
 
 const machines = getMachineNames();
 
+const InitialState = {
+    executingAnnotation: false,
+    getingParameters: false,
+    workflowTemplate: {
+        uid: "",
+        version: ""
+    },
+    allWorkflowParameters: [],
+    selectedWorkflowParam: {},
+    allSysNodePools: {
+        label: "",
+        options: [],
+        hint: null,
+        display_name: ""
+    },
+    selectedNodePool: undefined,
+    allDumpFormats: [],
+    selectedDumpFormat: undefined,
+    defaultSysNodePoolVal: "",
+    sysOutputPath: {
+        hint: null,
+        display_name: "",
+        value: ""
+    },
+    sysAnnotationPath: {
+        hint: null,
+        display_name: "",
+        value: ""
+    },
+    allSysFinetuneCheckpoint: {
+        options: [],
+        hint: null,
+        display_name: ""
+    },
+    selectedFinetuneCheckpoint: null,
+}
+
 export default class ModelNewAnnotationModalComponent extends React.PureComponent<Props, State> {
     public constructor(props: Props) {
         super(props);
-        this.state = {
-            executingAnnotation: false,
-            workflowTemplate: {
-                uid: "",
-                version: ""
-            },
-            allWorkflowParameters: [],
-            selectedWorkflowParam: {},
-            allSysNodePools: {
-                label: "",
-                options: []
-            },
-            selectedNodePool: undefined,
-            allDumpFormats: [],
-            selectedDumpFormat: undefined,
-            defaultSysNodePoolVal: "",
-        };
+        this.state = InitialState;
     }
 
     public componentDidUpdate(prevProps: Props, prevState: State): void {
@@ -88,23 +117,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 
 
         if (!prevProps.visible && visible) {
-            this.setState({
-                executingAnnotation: false,
-                workflowTemplate: {
-                    uid: "",
-                    version: ""
-                },
-                allWorkflowParameters: [],
-                selectedWorkflowParam: {},
-                allSysNodePools: {
-                    label: "",
-                    options: []
-                },
-                selectedNodePool: undefined,
-                allDumpFormats: [],
-                selectedDumpFormat: undefined,
-                defaultSysNodePoolVal: "",
-            });
+            this.setState(InitialState);
         }
     }
 
@@ -130,7 +143,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 'Content-Type': 'application/json',
             },
         });
-         const {
+        const {
             shapes,
             tracks,
         } = countResp;
@@ -194,6 +207,16 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         }
     }
 
+    private ExecuteSuccessMessage(name: string, url: string): JSX.Element {
+        return (
+            <div>
+                {name} workflow has been executed. Please check the workflow for logs
+                <br />
+                Visit this url for more information: <a href={url}>{url}</a>
+            </div>
+        )
+    }
+
     private async onExecuteWorkflow(): Promise<void> {
         const {
             taskInstance,
@@ -203,7 +226,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             workflowTemplate,
             selectedWorkflowParam,
             selectedNodePool,
-            selectedDumpFormat
+            selectedDumpFormat,
+            sysOutputPath,
+            sysAnnotationPath,
+            selectedFinetuneCheckpoint,
         } = this.state;
 
         this.setState({
@@ -213,14 +239,23 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         let finalPayload: ExecuteWorkflowPayload = {
             workflow_template: workflowTemplate!.uid || "",
             parameters: selectedWorkflowParam,
-            dump_format: selectedDumpFormat.tag || null,
+            dump_format: selectedDumpFormat!.tag || null,
         }
-        if(selectedNodePool) {
+        if (selectedNodePool) {
             finalPayload.parameters["sys-node-pool"] = selectedNodePool.value;
+        }
+        if (sysOutputPath) {
+            finalPayload.parameters["sys-output-path"] = sysOutputPath.value;
+        }
+        if (sysAnnotationPath) {
+            finalPayload.parameters["sys-annotation-path"] = sysAnnotationPath.value;
+        }
+        if(selectedFinetuneCheckpoint) {
+            finalPayload.parameters["sys-finetune-checkpoint"] = selectedFinetuneCheckpoint;
         }
 
         const baseUrl: string = core.config.backendAPI.slice(0, -7);
-        await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
+        let successResp = await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
             method: 'POST',
             data: finalPayload,
             headers: {
@@ -228,9 +263,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             },
         });
 
-        notification.info({
+        notification.open({
             message: 'Execute Workflow',
-            description: `${workflowTemplate} workflow has been executed. Please check the workflow for logs.`,
+            duration: 0,
+            description: this.ExecuteSuccessMessage(workflowTemplate!.uid, successResp.url)
         });
 
         closeDialog();
@@ -244,7 +280,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 
         const data = workflowTemplates.find(workflow => workflow.uid === value)
         this.setState({
-            workflowTemplate: data
+            workflowTemplate: data,
+            getingParameters: true,
         })
         if (value) {
             const baseUrl: string = core.config.backendAPI.slice(0, -7);
@@ -260,6 +297,9 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 const { parameters } = response;
                 let workflowParamsArr = parameters, workflowParamNameValue = {};
                 const sysNodePoolParam = parameters.find((param: WorkflowParameters) => param.name === "sys-node-pool");
+                const sysFinetuneCheckpoint = parameters.find((param: WorkflowParameters) => param.name === "sys-finetune-checkpoint");
+                const sysOutputPath = parameters.find((param: WorkflowParameters) => param.name === "sys-output-path");
+                const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === "sys-annotation-path");
 
                 if (sysNodePoolParam) {
                     const nodePoolResp = await core.server.request(`${baseUrl}/onepanelio/get_node_pool`, {
@@ -270,21 +310,83 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     });
                     let { node_pool } = nodePoolResp;
                     this.setState({
-                        allSysNodePools: node_pool,
+                        allSysNodePools: {
+                            ...node_pool,
+                            hint: sysNodePoolParam.hint,
+                            display_name: sysNodePoolParam.display_name ? sysNodePoolParam.display_name : sysNodePoolParam.name
+                        },
                         defaultSysNodePoolVal: sysNodePoolParam.value,
                         selectedNodePool: node_pool.options.find((node: NodePoolParameters) => node.value === sysNodePoolParam.value)
                     });
-                    workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
-                        if (param.name !== "sys-node-pool") {
-                            workflowParamNameValue = {
-                                ...workflowParamNameValue,
-                                [param.name]: param.value
-                            }
-                            return true;
-                        }
-                        return false;
-                    })
                 }
+
+                if (sysFinetuneCheckpoint) {
+                    const specificModelsResp = await core.server.request(`${baseUrl}/onepanelio/get_base_model`, {
+                        method: 'POST',
+                        data: { uid: data!.uid },
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                    });
+                    console.log(specificModelsResp)
+                    let { keys } = specificModelsResp;
+                    this.setState({
+                        allSysFinetuneCheckpoint: {
+                            options: keys,
+                            hint: sysFinetuneCheckpoint.hint,
+                            display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+                        },
+                    });
+                }
+
+                try {
+                    if (sysOutputPath) {
+                        const sysOutputPathResp = await core.server.request(`${baseUrl}/onepanelio/get_output_path/${taskInstance.id}`, {
+                            method: 'POST',
+                            data: { uid: data!.uid },
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                        this.setState({
+                            sysOutputPath: {
+                                display_name: sysOutputPath.display_name ? sysOutputPath.display_name : sysOutputPath.name,
+                                hint: sysOutputPath.hint,
+                                value: sysOutputPathResp.name
+                            }
+                        });
+                    }
+                    if (sysAnnotationPath) {
+                        const sysAnnotationPathResp = await core.server.request(`${baseUrl}/onepanelio/get_annotation_path/${taskInstance.id}`, {
+                            method: 'POST',
+                            data: { uid: data!.uid },
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                        this.setState({
+                            sysAnnotationPath: {
+                                display_name: sysAnnotationPath.display_name ? sysAnnotationPath.display_name : sysAnnotationPath.name,
+                                hint: sysAnnotationPath.hint,
+                                value: sysAnnotationPathResp.name
+                            }
+                        });
+                    }
+                } catch (e) {
+
+                }
+
+                workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
+                    if (param.name !== "sys-node-pool" && param.name !== "sys-output-path" && 
+                        param.name !== "sys-annotation-path" && param.name !== "sys-finetune-checkpoint") {
+                        workflowParamNameValue = {
+                            ...workflowParamNameValue,
+                            [param.name]: param.value
+                        }
+                        return true;
+                    }
+                    return false;
+                })
 
                 const dumpFormats = await core.server.request(`${baseUrl}/onepanelio/get_available_dump_formats`, {
                     method: 'POST',
@@ -294,6 +396,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 });
 
                 this.setState({
+                    getingParameters: false,
                     allWorkflowParameters: workflowParamsArr,
                     allDumpFormats: dumpFormats.dump_formats,
                     selectedWorkflowParam: { ...workflowParamNameValue }
@@ -335,23 +438,26 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     this.state.allWorkflowParameters.map((workflowParams, index) => {
                         return (
                             <Row type='flex' align='middle' key={index}>
-                                <Col span={6}>{workflowParams.name}:</Col>
+                                <Col span={6}>{workflowParams.display_name ? workflowParams.display_name : workflowParams.name}:</Col>
                                 <Col span={17}>
                                     {
                                         workflowParams.type && workflowParams.type.toLowerCase() === "select.select" ?
                                             <Select
                                                 placeholder='Select a workflow parameter'
                                                 style={{ width: '100%' }}
+                                                defaultValue={
+                                                    this.state.selectedWorkflowParam[workflowParams.name]
+                                                }
                                                 onChange={(value: any) => this.setState({
                                                     selectedWorkflowParam: {
                                                         ...this.state.selectedWorkflowParam,
-                                                        [value.value]: value.name
+                                                        [workflowParams.name]: value
                                                     }
                                                 })}
                                             >
                                                 {
                                                     workflowParams.options.map((param: any) =>
-                                                        <Select.Option value={param} key={param.value}>
+                                                        <Select.Option value={param.value} key={param.value}>
                                                             {param.name}
                                                         </Select.Option>
                                                     )
@@ -372,6 +478,11 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                                 })}
                                             /> : null
                                     }
+                                    {
+                                        workflowParams.hint ?
+                                            <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{workflowParams.hint}</div> :
+                                            null
+                                    }
                                 </Col>
                             </Row>
                         )
@@ -381,7 +492,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 {
                     this.state.allSysNodePools.options.length ?
                         <Row type='flex' align='middle'>
-                            <Col span={6}>sys-node-pool: &nbsp;<span style={{color: "red"}}>*</span></Col>
+                            <Col span={6}>{this.state.allSysNodePools.display_name}: &nbsp;<span style={{ color: "red" }}>*</span></Col>
                             <Col span={17}>
                                 <Select
                                     placeholder='Select a system node pool'
@@ -402,6 +513,90 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         )
                                     }
                                 </Select>
+                                {
+                                    this.state.allSysNodePools.hint ?
+                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.allSysNodePools.hint}</div> :
+                                        null
+                                }
+                            </Col>
+                        </Row> : null
+                }
+
+                {
+                    this.state.allSysFinetuneCheckpoint.options.length ?
+                        <Row type='flex' align='middle'>
+                            <Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col>
+                            <Col span={17}>
+                                <Select
+                                    placeholder='Select a system node pool'
+                                    style={{ width: '100%' }}
+                                    onChange={(value: any) => {
+                                        this.setState({
+                                            selectedFinetuneCheckpoint: value
+                                        })
+                                    }}
+                                >
+                                    {
+                                        this.state.allSysFinetuneCheckpoint.options.map((checkpoint: string) =>
+                                            <Select.Option key={checkpoint} value={checkpoint}>
+                                                {checkpoint}
+                                            </Select.Option>
+                                        )
+                                    }
+                                </Select>
+                                {
+                                    this.state.allSysFinetuneCheckpoint.hint ?
+                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.allSysFinetuneCheckpoint.hint}</div> :
+                                        null
+                                }
+                            </Col>
+                        </Row> : null
+                }
+
+                {
+                    this.state.sysOutputPath.value ?
+                        <Row type='flex' align='middle'>
+                            <Col span={6}>{this.state.sysOutputPath.display_name}:</Col>
+                            <Col span={17}>
+                                <TextArea
+                                    autoSize={{ minRows: 1, maxRows: 4 }}
+                                    value={this.state.sysOutputPath.value || ""}
+                                    onChange={(event) => this.setState({
+                                        sysOutputPath: {
+                                            ...this.state.sysOutputPath,
+                                            value: event.target.value
+                                        }
+                                    })}
+                                />
+                                {
+                                    this.state.sysOutputPath.hint ?
+                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.sysOutputPath.hint}</div> :
+                                        null
+                                }
+                            </Col>
+                        </Row> : null
+                }
+
+                {
+                    this.state.sysAnnotationPath.value ?
+                        <Row type='flex' align='middle'>
+                            <Col span={6}>{this.state.sysAnnotationPath.display_name}:</Col>
+                            <Col span={17}>
+                                <TextArea
+                                    autoSize={{ minRows: 1, maxRows: 4 }}
+                                    value={this.state.sysAnnotationPath.value || ""}
+                                    onChange={(event) => this.setState({
+                                        sysAnnotationPath: {
+                                            ...this.state.sysAnnotationPath,
+                                            value: event.target.value
+                                        }
+                                    })}
+                                />
+                                {
+                                    this.state.sysAnnotationPath.hint ?
+                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.sysAnnotationPath.hint}</div> :
+                                        null
+                                }
                             </Col>
                         </Row> : null
                 }
@@ -409,7 +604,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 {
                     this.state.allDumpFormats.length ?
                         <Row type='flex' align='middle'>
-                            <Col span={6}>Select dump format: &nbsp;<span style={{color: "red"}}>*</span></Col>
+                            <Col span={6}>Select dump format: &nbsp;<span style={{ color: "red" }}>*</span></Col>
                             <Col span={17}>
                                 <Select
                                     placeholder='Select a dump format'
@@ -466,11 +661,20 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             )
         }
 
+        if(this.state.getingParameters) {
+            footerElements.push(
+                <span key={"paramMessage"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
+                    <Spin /> &nbsp; &nbsp;
+                    {`Getting workflow parameters...`}
+                </span>
+            )
+        }
+
         const checkSubmitEnable = () => {
-            if(this.state.workflowTemplate!.uid && this.state.selectedDumpFormat) {
-                if((this.state.allSysNodePools.options.length && this.state.selectedNodePool) || !this.state.allSysNodePools.options.length) {
+            if (this.state.workflowTemplate!.uid && this.state.selectedDumpFormat) {
+                if ((this.state.allSysNodePools.options.length && this.state.selectedNodePool) || !this.state.allSysNodePools.options.length) {
                     return false;
-                } 
+                }
                 return true;
             }
             return true;
@@ -478,23 +682,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 
         const footerButtons = [
             <Button key="back" onClick={(): void => {
-                this.setState({
-                    executingAnnotation: false,
-                    workflowTemplate: {
-                        uid: "",
-                        version: ""
-                    },
-                    allWorkflowParameters: [],
-                    selectedWorkflowParam: {},
-                    allSysNodePools: {
-                        label: "",
-                        options: []
-                    },
-                    selectedNodePool: undefined,
-                    allDumpFormats: [],
-                    selectedDumpFormat: undefined,
-                    defaultSysNodePoolVal: "",
-                });
+                this.setState(InitialState);
                 closeDialog();
             }}>
                 Cancel

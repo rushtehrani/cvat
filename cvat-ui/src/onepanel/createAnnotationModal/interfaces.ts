@@ -29,7 +29,7 @@ export interface WorkflowParameters {
     name: string;
     value: string;
     required: boolean | null;
-    options: [];
+    options: any;
     hint: string | null;
     display_name: string | null;
 }
@@ -37,11 +37,20 @@ export interface WorkflowParameters {
 export interface NodePoolResponse {
     label: string;
     options: NodePoolParameters[];
+    hint: string | null;
+    display_name: string | null;
 }
 
 export interface NodePoolParameters {
     name: string;
     value: string;
+}
+
+export interface DefaultSysParams {
+    hint: string | null;
+    display_name: string | null;
+    options?: any
+    value?: string | null;
 }
 
 export interface DumpFormats {
@@ -52,5 +61,5 @@ export interface DumpFormats {
 export interface ExecuteWorkflowPayload {
     workflow_template: string;
     parameters: any;
-    dump_format: DumpFormats | null;
+    dump_format: string | null;
 }
