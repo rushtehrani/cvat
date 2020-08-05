@@ -146,13 +146,24 @@ def get_object_counts(request, pk):
     return Response(data)
 
 @api_view(['POST'])
-def generate_output_name(request, pk):
+def generate_output_path(request, pk):
     form_data = json.loads(request.body.decode('utf-8'))
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
     db_task = TaskModel.objects.get(pk=pk)
-    dir_name = db_task.name + '_' + form_data['uid'] + '_' + stamp
-    prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') + '/workflow-data/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output')
+    dir_name = os.getenv('ONEPANEL_RESOURCE_UID') + '_' + db_task.name + '_' + form_data['uid'] + '_output_' + stamp
+    prefix = 'workflow-data/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output')
+    output = prefix + '/' + dir_name + '/'
+    return Response({'name':output})
+
+@api_view(['POST'])
+def generate_dataset_path(request, pk):
+    form_data = json.loads(request.body.decode('utf-8'))
+    time = datetime.now()
+    stamp = time.strftime("%m%d%Y%H%M%S")
+    db_task = TaskModel.objects.get(pk=pk)
+    dir_name = os.getenv('ONEPANEL_RESOURCE_UID') + '_' + db_task.name + '_' + form_data['uid'] + '_annotation_dump_' + stamp
+    prefix = 'annotation-dump'
     output = prefix + '/' + dir_name + '/'
     return Response({'name':output})
 
@@ -161,7 +172,7 @@ def get_model_keys(request):
     form_data = json.loads(request.body.decode('utf-8'))
     # bucket_name = authenticate_cloud_storage()
     all_models = [x for x in os.listdir("/home/django/share/output") if os.path.isdir("/home/django/share/output/"+x)]
-    specific_models = [x for x in all_models if form_data['uid'] in x]
+    specific_models = [os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/workflow-data/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')+'/'+x for x in all_models if form_data['uid'] in x]
     return Response({'keys':specific_models})
 
     # import boto3
@@ -200,10 +211,10 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
     
     data = DatumaroTask.get_export_formats()
     formats = {d['name']:d['tag'] for d in data}
-    if dump_format not in formats:
+    if dump_format not in formats.values():
         dump_format = "cvat_tfrecord"
 
-    dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_" + dump_format + "_" + stamp
+    # dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_" + dump_format + "_" + stamp
 
     with tempfile.TemporaryDirectory() as test_dir:
 
@@ -216,21 +227,15 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
 
             #check if datasets folder exists on aws bucket
             s3_client = boto3.client('s3')
-
-            try:
-                s3_client.head_object(Bucket=bucket_name, Key=cloud_prefix)
-                #add logging
-            except ClientError:
-                # Not found
-                slogger.glob.info("Datasets folder does not exist in the bucket, creating a new one.")
-                s3_client.put_object(Bucket=bucket_name, Key=(cloud_prefix))
-
+          
             for root,dirs,files in os.walk(test_dir):
                 for file in files:
                     upload_dir = root.replace(test_dir, "")
                     if upload_dir.startswith("/"):
                         upload_dir = upload_dir[1:]
-                    s3_client.upload_file(os.path.join(root,file),bucket_name,os.path.join(cloud_prefix,dataset_name, upload_dir, file))
+                    if not cloud_prefix.endswith("/"):
+                        cloud_prefix += "/"
+                    s3_client.upload_file(os.path.join(root,file),bucket_name,os.path.join(os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+cloud_prefix, upload_dir, file))
           
         elif cloud_provider == "gcs":
             from google.cloud import storage
@@ -242,7 +247,9 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
                     upload_dir = root.replace(test_dir, "")
                     if upload_dir.startswith("/"):
                         upload_dir = upload_dir[1:]
-                    blob = bucket.blob(os.path.join(cloud_prefix, dataset_name, upload_dir, file))
+                    if not cloud_prefix.endswith("/"):
+                        cloud_prefix += "/"
+                    blob = bucket.blob(os.path.join(os.getenv('ONEPANEL_RESOURCE_NAMESPACE') + '/'+cloud_prefix, upload_dir, file))
                     blob.upload_from_filename(os.path.join(root, file))
         
         elif cloud_provider == "az":
@@ -251,7 +258,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
         else:
             raise ValueError("Invalid cloud provider! Should be from ['s3','gcs','az']")
 
-    return bucket_name, dataset_name
+    return bucket_name
 
 
 @api_view(['POST'])
@@ -272,10 +279,11 @@ def create_annotation_model(request, pk):
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
 
-    cloud_prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+ '/annotation-dump/'
+    # cloud_prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+ '/annotation-dump/'
 
     # dump training data on cloud
-    bucket_name, dataset_name = dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], cloud_prefix, request)
+    if 'sys-annotation-path' in form_data['parameters']:
+        bucket_name = dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], form_data['parameters']['sys-annotation-path'], request)
    
     configuration = onepanel_authorize(request)
 

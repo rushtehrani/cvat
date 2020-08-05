@@ -12,5 +12,7 @@ urlpatterns = [
     path('get_base_model', views.get_model_keys),
     path('execute_workflow/<int:pk>', views.create_annotation_model),
     path('get_workflow_parameters', views.get_workflow_parameters),
-    path('get_available_dump_formats', views.get_available_dump_formats)
+    path('get_available_dump_formats', views.get_available_dump_formats),
+    path('get_output_path/<int:pk>', views.generate_output_path),
+    path('get_annotation_path/<int:pk>', views.generate_dataset_path),
 ]
