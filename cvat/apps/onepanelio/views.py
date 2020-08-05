@@ -25,8 +25,8 @@ from rest_framework.decorators import api_view
 import yaml
 
 def onepanel_authorize(request):
-    #auth_token = AuthToken.get_auth_token(request)
-    auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    auth_token = AuthToken.get_auth_token(request)
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
         api_key = { 'Bearer': auth_token})
@@ -169,12 +169,14 @@ def generate_dataset_path(request, pk):
 
 @api_view(['POST'])
 def get_model_keys(request):
-    form_data = json.loads(request.body.decode('utf-8'))
-    # bucket_name = authenticate_cloud_storage()
-    all_models = [x for x in os.listdir("/home/django/share/output") if os.path.isdir("/home/django/share/output/"+x)]
-    specific_models = [os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/workflow-data/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')+'/'+x for x in all_models if form_data['uid'] in x]
-    return Response({'keys':specific_models})
-
+    try:
+        form_data = json.loads(request.body.decode('utf-8'))
+        # bucket_name = authenticate_cloud_storage()
+        all_models = [x for x in os.listdir("/home/django/share/output") if os.path.isdir("/home/django/share/output/"+x)]
+        specific_models = [os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/workflow-data/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')+'/'+x for x in all_models if form_data['uid'] in x]
+        return Response({'keys':specific_models})
+    except:
+        return Response({'keys':[]})
     # import boto3
     # from botocore.exceptions import ClientError
     # S3 = boto3.client('s3')

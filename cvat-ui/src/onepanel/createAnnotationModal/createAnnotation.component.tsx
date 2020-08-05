@@ -212,7 +212,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             <div>
                 {name} workflow has been executed. Please check the workflow for logs
                 <br />
-                Visit this url for more information: <a href={url}>{url}</a>
+                Visit this url for more information: <a href={url} target='_blank'>{url}</a>
             </div>
         )
     }
@@ -230,6 +230,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             sysOutputPath,
             sysAnnotationPath,
             selectedFinetuneCheckpoint,
+            allSysFinetuneCheckpoint,
         } = this.state;
 
         this.setState({
@@ -250,8 +251,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         if (sysAnnotationPath) {
             finalPayload.parameters["sys-annotation-path"] = sysAnnotationPath.value;
         }
-        if(selectedFinetuneCheckpoint) {
-            finalPayload.parameters["sys-finetune-checkpoint"] = selectedFinetuneCheckpoint;
+        if(selectedFinetuneCheckpoint || allSysFinetuneCheckpoint.value) {
+            finalPayload.parameters["sys-finetune-checkpoint"] = selectedFinetuneCheckpoint ? selectedFinetuneCheckpoint : allSysFinetuneCheckpoint.value;
         }
 
         const baseUrl: string = core.config.backendAPI.slice(0, -7);
@@ -328,15 +329,25 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                             'Content-Type': 'application/json',
                         },
                     });
-                    console.log(specificModelsResp)
                     let { keys } = specificModelsResp;
-                    this.setState({
-                        allSysFinetuneCheckpoint: {
-                            options: keys,
-                            hint: sysFinetuneCheckpoint.hint,
-                            display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
-                        },
-                    });
+                    if (keys.length > 0){
+                        this.setState({
+                            allSysFinetuneCheckpoint: {
+                                options: keys,
+                                hint: sysFinetuneCheckpoint.hint,
+                                display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+                            },
+                        });
+                    }
+                    else{
+                        this.setState({
+                            allSysFinetuneCheckpoint: {
+                                value: "",
+                                hint: sysFinetuneCheckpoint.hint,
+                                display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+                            },
+                        });
+                    }
                 }
 
                 try {
@@ -523,12 +534,12 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 }
 
                 {
-                    this.state.allSysFinetuneCheckpoint.options.length ?
+                    this.state.allSysFinetuneCheckpoint.options ? this.state.allSysFinetuneCheckpoint.options.length ?
                         <Row type='flex' align='middle'>
                             <Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col>
                             <Col span={17}>
                                 <Select
-                                    placeholder='Select a system node pool'
+                                    placeholder='Select a checkpoint path'
                                     style={{ width: '100%' }}
                                     onChange={(value: any) => {
                                         this.setState({
@@ -550,9 +561,27 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         null
                                 }
                             </Col>
-                        </Row> : null
+                        </Row> : null :                         <Row type='flex' align='middle'>
+                            <Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col>
+                            <Col span={17}>
+                                <TextArea
+                                    autoSize={{ minRows: 1, maxRows: 4 }}
+                                    value={this.state.allSysFinetuneCheckpoint.value || ""}
+                                    onChange={(event) => this.setState({
+                                        allSysFinetuneCheckpoint: {
+                                            ...this.state.allSysFinetuneCheckpoint,
+                                            value: event.target.value
+                                        }
+                                    })}
+                                />
+                                {
+                                    this.state.allSysFinetuneCheckpoint.hint ?
+                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.allSysFinetuneCheckpoint.hint}</div> :
+                                        null
+                                }
+                            </Col>
+                        </Row>
                 }
-
                 {
                     this.state.sysOutputPath.value ?
                         <Row type='flex' align='middle'>
