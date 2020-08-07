@@ -107,6 +107,7 @@ def get_workflow_parameters(request):
 
     """
     # read workflow_uid and workflow_version from request payload
+    global all_parameters
     form_data = json.loads(request.body.decode('utf-8'))
 
     configuration = onepanel_authorize(request)
@@ -119,8 +120,6 @@ def get_workflow_parameters(request):
     try:
         api_response = api_instance.get_workflow_template2(namespace, uid=form_data['uid'], version=form_data['version'])
         all_parameters = api_response.to_dict()['parameters']
-        public_parameters = [p for p in all_parameters if p['visibility'] == 'public']
-        print(public_parameters)
         return JsonResponse({'parameters':public_parameters})
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
@@ -236,7 +235,6 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
         else:
             raise ValueError("Invalid cloud provider! Should be from ['s3','gcs','az']")
 
-    return bucket_name
 
 
 @api_view(['POST'])
@@ -244,7 +242,9 @@ def create_annotation_model(request, pk):
     """
         Executes workflow selected by User.
     """
-    
+    global all_parameters
+    all_parameter_names = [p['name'] for p in all_parameters] 
+
     db_task = TaskModel.objects.get(pk=pk)
     db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
@@ -263,7 +263,9 @@ def create_annotation_model(request, pk):
     # if 'sys-annotation-path' in form_data['parameters']:
     annotation_path = 'annotation-dump' + '/' + db_task.name + '/' + stamp + '/'
     output_path = 'workflow-data' + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + stamp + '/'
-    bucket_name = dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
+    
+    if 'sys-annotation-path' in all_parameter_names:
+        dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
    
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
@@ -277,10 +279,14 @@ def create_annotation_model(request, pk):
         namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') # str | 
         params = []
         for p_name, p_value in form_data['parameters'].items():
-            print(p_name)
+            if p_name in ['sys-annotation-path','sys-output-path']:
+                continue
             params.append(Parameter(name=p_name, value=p_value))
-        params.append(Parameter(name='sys-annotation-path', value=annotation_path))
-        params.append(Parameter(name='sys-output-path', value=output_path))
+        
+        if 'sys-annotation-path' in all_parameter_names:
+            params.append(Parameter(name='sys-annotation-path', value=annotation_path))
+        if 'sys-output-path' in all_parameter_names:
+            params.append(Parameter(name='sys-output-path', value=output_path))
         
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
         workflow_template_uid = form_data['workflow_template']) 

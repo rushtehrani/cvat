@@ -210,7 +210,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     private ExecuteSuccessMessage(name: string, url: string): JSX.Element {
         return (
             <div>
-                {name} workflow has been executed. Please check the workflow for logs
+                {name} workflow has been executed. Please check the workflow for logs.
                 <br />
                 Visit this url for more information: <a href={url} target='_blank'>{url}</a>
             </div>
