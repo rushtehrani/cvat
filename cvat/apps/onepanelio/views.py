@@ -93,7 +93,7 @@ def get_workflow_templates(request):
     page_size = 100 # int |  (optional)
     page = 1 # int |  (optional)
     try:
-        api_response = api_instance.list_workflow_templates(namespace, page_size=page_size, page=page)
+        api_response = api_instance.list_workflow_templates(namespace, page_size=page_size, page=page, labels=os.getenv('ONEPANEL_CVAT_WORKFLOWS_LABEL','key=in,value=cvat'))
         return JsonResponse(api_response.to_dict())
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
@@ -118,7 +118,10 @@ def get_workflow_parameters(request):
         namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')  # str |
     try:
         api_response = api_instance.get_workflow_template2(namespace, uid=form_data['uid'], version=form_data['version'])
-        return JsonResponse({'parameters':api_response.to_dict()['parameters']})
+        all_parameters = api_response.to_dict()['parameters']
+        public_parameters = [p for p in all_parameters if p['visibility'] == 'public']
+        print(public_parameters)
+        return JsonResponse({'parameters':public_parameters})
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
 
@@ -145,24 +148,20 @@ def get_object_counts(request, pk):
     data = annotation.get_task_data_custom(pk, request.user)
     return Response(data)
 
-@api_view(['POST'])
-def generate_output_path(request, pk):
-    form_data = json.loads(request.body.decode('utf-8'))
+def generate_output_path(uid, pk):
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
     db_task = TaskModel.objects.get(pk=pk)
-    dir_name = os.getenv('ONEPANEL_RESOURCE_UID') + '_' + db_task.name + '_' + form_data['uid'] + '_output_' + stamp
+    dir_name = db_task.name + '/' + form_data['uid'] + '/' + stamp
     prefix = 'workflow-data/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output')
     output = prefix + '/' + dir_name + '/'
     return Response({'name':output})
 
-@api_view(['POST'])
-def generate_dataset_path(request, pk):
-    form_data = json.loads(request.body.decode('utf-8'))
+def generate_dataset_path(uid, pk):
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
     db_task = TaskModel.objects.get(pk=pk)
-    dir_name = os.getenv('ONEPANEL_RESOURCE_UID') + '_' + db_task.name + '_' + form_data['uid'] + '_annotation_dump_' + stamp
+    dir_name = db_task.name + '/' + stamp
     prefix = 'annotation-dump'
     output = prefix + '/' + dir_name + '/'
     return Response({'name':output})
@@ -172,34 +171,11 @@ def get_model_keys(request):
     try:
         form_data = json.loads(request.body.decode('utf-8'))
         # bucket_name = authenticate_cloud_storage()
-        all_models = [x for x in os.listdir("/home/django/share/output") if os.path.isdir("/home/django/share/output/"+x)]
-        specific_models = [os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/workflow-data/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')+'/'+x for x in all_models if form_data['uid'] in x]
-        return Response({'keys':specific_models})
+        checkpoints = [i[0] for i in os.walk('/home/django/share/output') if form_data['uid']+'/' in i[0]]
+        checkpoint_paths = [os.path.join(*['workflow-data']+c.split("/")[-4:]) for c in checkpoints]
+        return Response({'keys':checkpoint_paths})
     except:
         return Response({'keys':[]})
-    # import boto3
-    # from botocore.exceptions import ClientError
-    # S3 = boto3.client('s3')
-    # paginator = S3.get_paginator('list_objects_v2')
-    # keys = set()
-    # for page in paginator.paginate(Bucket=bucket_name, Prefix=os.getenv('AWS_S3_PREFIX','datesets')+'/'+os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'):
-    #     try:
-    #         contents = page['Contents']
-    #     except KeyError as e:
-    #         wlogger.warning("An exception occurred. {}".format(e))
-    #         break
-
-    #     for cont in contents:
-    #         key = cont['Key']
-    #         if "models" in key and "saved_model" not in key and "logs" not in key:
-    #             if form_data['model_type'] == "tensorflow":
-    #                 if "tfod" in key:
-    #                     keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
-    #             else:
-    #                 if "maskrcnn" in key:
-    #                     keys.add(os.path.join(*(os.path.dirname(cont['Key']).split(os.path.sep)[2:])))
-    # return Response({'keys':keys})
-
 
 
 def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
@@ -284,9 +260,14 @@ def create_annotation_model(request, pk):
     # cloud_prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+ '/annotation-dump/'
 
     # dump training data on cloud
-    if 'sys-annotation-path' in form_data['parameters']:
-        bucket_name = dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], form_data['parameters']['sys-annotation-path'], request)
+    # if 'sys-annotation-path' in form_data['parameters']:
+    annotation_path = 'annotation-dump' + '/' + db_task.name + '/' + stamp + '/'
+    output_path = 'workflow-data' + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + stamp + '/'
+    bucket_name = dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
    
+    time = datetime.now()
+    stamp = time.strftime("%m%d%Y%H%M%S")
+
     configuration = onepanel_authorize(request)
 
     # Enter a context with an instance of the API client
@@ -296,7 +277,10 @@ def create_annotation_model(request, pk):
         namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') # str | 
         params = []
         for p_name, p_value in form_data['parameters'].items():
+            print(p_name)
             params.append(Parameter(name=p_name, value=p_value))
+        params.append(Parameter(name='sys-annotation-path', value=annotation_path))
+        params.append(Parameter(name='sys-output-path', value=output_path))
         
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
         workflow_template_uid = form_data['workflow_template']) 
