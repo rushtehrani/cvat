@@ -30,11 +30,13 @@ interface Props {
     taskInstance: any;
     baseModelList: string[];
     workflowTemplates: WorkflowTemplates[];
+    fetchingWorkflowTemplates: boolean;
     closeDialog(): void;
     getBaseModelList(taskInstance: any, modelType: string): void;
 }
 
 interface State {
+    isLoading: boolean,
     executingAnnotation: boolean;
     getingParameters: boolean;
     workflowTemplate: WorkflowTemplates | undefined;
@@ -49,6 +51,7 @@ interface State {
     sysAnnotationPath: DefaultSysParams;
     allSysFinetuneCheckpoint: DefaultSysParams;
     selectedFinetuneCheckpoint: string | null;
+    showDumpFormatHint: boolean;
 }
 
 interface CreateAnnotationSubmitData {
@@ -68,6 +71,7 @@ const models = getModelNames()
 const machines = getMachineNames();
 
 const InitialState = {
+    isLoading: true,
     executingAnnotation: false,
     getingParameters: false,
     workflowTemplate: {
@@ -102,6 +106,7 @@ const InitialState = {
         display_name: ""
     },
     selectedFinetuneCheckpoint: null,
+    showDumpFormatHint: false,
 }
 
 export default class ModelNewAnnotationModalComponent extends React.PureComponent<Props, State> {
@@ -399,17 +404,40 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     return false;
                 })
 
-                const dumpFormats = await core.server.request(`${baseUrl}/onepanelio/get_available_dump_formats`, {
+                const {dump_formats} = await core.server.request(`${baseUrl}/onepanelio/get_available_dump_formats`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                 });
 
+                const dumpFormat = parameters.find((param: WorkflowParameters) => param.name === "dump-format");
+                if(!dumpFormat.value) {
+                    this.setState({
+                        allDumpFormats: dump_formats,
+                    });
+                } else {
+                    let dumpFormatInParams = dump_formats.find((dump: DumpFormats) => dump.tag === dumpFormat.value);
+                    if(dumpFormatInParams) {
+                        this.setState({
+                            selectedDumpFormat: dumpFormatInParams
+                        })
+                    } else {
+                        this.setState({
+                            allDumpFormats: dump_formats,
+                            selectedDumpFormat: {
+                                tag: dumpFormat.value,
+                                name: dumpFormat.value
+                            },
+                            showDumpFormatHint: true,
+                        })
+                    }
+                }
+
+
                 this.setState({
                     getingParameters: false,
                     allWorkflowParameters: workflowParamsArr,
-                    allDumpFormats: dumpFormats.dump_formats,
                     selectedWorkflowParam: { ...workflowParamNameValue }
                 });
             } catch (error) {
@@ -638,10 +666,12 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 <Select
                                     placeholder='Select a dump format'
                                     style={{ width: '100%' }}
-                                    onChange={(value) => {
+                                    defaultValue={this.state.selectedDumpFormat ? this.state.selectedDumpFormat.tag : ""}
+                                    onChange={(value: any) => {
                                         const selectedFormat = this.state.allDumpFormats.find(format => format.tag === value);
                                         this.setState({
-                                            selectedDumpFormat: selectedFormat
+                                            selectedDumpFormat: selectedFormat,
+                                            showDumpFormatHint: false,
                                         })
                                     }}
                                 >
@@ -653,6 +683,13 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         )
                                     }
                                 </Select>
+                                {
+                                    this.state.showDumpFormatHint ?
+                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>
+                                            Default dump format is not supported. If you continue it might throw an error.
+                                        </div> :
+                                        null
+                                }
                             </Col>
                         </Row> : null
                 }
@@ -678,6 +715,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     private footerComponent(): JSX.Element[] {
         const {
             closeDialog,
+            fetchingWorkflowTemplates
         } = this.props;
 
         let footerElements = [];
@@ -698,6 +736,16 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 </span>
             )
         }
+
+        if(fetchingWorkflowTemplates) {
+            footerElements.push(
+                <span key={"fetchMessage"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
+                    <Spin /> &nbsp; &nbsp;
+                    {`Getting workflow templates...`}
+                </span>
+            )
+        }
+
 
         const checkSubmitEnable = () => {
             if (this.state.workflowTemplate!.uid && this.state.selectedDumpFormat) {

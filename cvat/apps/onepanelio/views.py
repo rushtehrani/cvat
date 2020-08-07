@@ -120,6 +120,7 @@ def get_workflow_parameters(request):
     try:
         api_response = api_instance.get_workflow_template2(namespace, uid=form_data['uid'], version=form_data['version'])
         all_parameters = api_response.to_dict()['parameters']
+        public_parameters = [p for p in all_parameters if p['visibility'] == 'public']
         return JsonResponse({'parameters':public_parameters})
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)

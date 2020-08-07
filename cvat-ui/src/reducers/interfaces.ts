@@ -165,6 +165,7 @@ export interface ModelsState {
     visibleNewAnnotationWindows: boolean;
     activeNewAnnotationTask: any;
     baseModelList: string[];
+    fetchingWorkflowTemplates: boolean;
     workflowTemplates: {
         uid: string;
         version: string;

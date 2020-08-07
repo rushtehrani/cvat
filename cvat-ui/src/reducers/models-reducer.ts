@@ -20,6 +20,7 @@ const defaultState: ModelsState = {
     activeNewAnnotationTask: null,
     baseModelList: [],
     workflowTemplates: [],
+    fetchingWorkflowTemplates: false,
 };
 
 export default function (
@@ -101,7 +102,21 @@ export default function (
                 ...state,
                 visibleNewAnnotationWindows: true,
                 activeNewAnnotationTask: action.payload.taskInstance,
-                workflowTemplates: action.payload.workflowTemplate,
+                fetchingWorkflowTemplates: true,
+            };
+        }
+        case CreateAnnotationActionTypes.GET_WORKFLOW_TEMPLATES_SUCCESS: {
+            return {
+                ...state,
+                workflowTemplates: action.payload.workflowTemplates,
+                fetchingWorkflowTemplates: false,
+            };
+        }
+        case CreateAnnotationActionTypes.GET_WORKFLOW_TEMPLATES_ERROR: {
+            return {
+                ...state,
+                workflowTemplates: [],
+                fetchingWorkflowTemplates: false,
             };
         }
         case CreateAnnotationActionTypes.GET_BASE_MODEL: {

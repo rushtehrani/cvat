@@ -22,6 +22,7 @@ interface StateToProps {
     visible: boolean;
     baseModelList: string[];
     workflowTemplates: WorkflowTemplates[];
+    fetchingWorkflowTemplates: boolean;
 }
 
 interface DispatchToProps {
@@ -37,6 +38,7 @@ function mapStateToProps(state: CombinedState): StateToProps {
         visible: models.visibleNewAnnotationWindows,
         baseModelList: models.baseModelList,
         workflowTemplates: models.workflowTemplates,
+        fetchingWorkflowTemplates: models.fetchingWorkflowTemplates,
     };
 }
 
