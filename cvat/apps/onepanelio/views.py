@@ -25,7 +25,7 @@ from rest_framework.decorators import api_view
 import yaml
 
 def onepanel_authorize(request):
-    #auth_token = AuthToken.get_auth_token(request)
+    # auth_token = AuthToken.get_auth_token(request)
     auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
@@ -245,7 +245,7 @@ def create_annotation_model(request, pk):
     """
     global all_parameters
     all_parameter_names = [p['name'] for p in all_parameters] 
-
+    print(all_parameter_names)
     db_task = TaskModel.objects.get(pk=pk)
     db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
@@ -288,6 +288,8 @@ def create_annotation_model(request, pk):
             params.append(Parameter(name='sys-annotation-path', value=annotation_path))
         if 'sys-output-path' in all_parameter_names:
             params.append(Parameter(name='sys-output-path', value=output_path))
+        if 'dump-format' in all_parameter_names:
+            params.append(Parameter(name='dump-format', value=form_data['dump_format']))
         
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
         workflow_template_uid = form_data['workflow_template']) 

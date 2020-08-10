@@ -690,7 +690,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 {
                                     this.state.showDumpFormatHint ?
                                         <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>
-                                            Default dump format is not supported. If you continue it might throw an error.
+                                            Dump format provided in Workflow is not supported. Please select one from above list.
                                         </div> :
                                         null
                                 }
