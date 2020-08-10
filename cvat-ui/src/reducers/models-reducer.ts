@@ -109,13 +109,17 @@ export default function (
             return {
                 ...state,
                 workflowTemplates: action.payload.workflowTemplates,
-                fetchingWorkflowTemplates: false,
             };
         }
         case CreateAnnotationActionTypes.GET_WORKFLOW_TEMPLATES_ERROR: {
             return {
                 ...state,
                 workflowTemplates: [],
+            };
+        }
+        case CreateAnnotationActionTypes.HIDE_FETCHING_WORKFLOW_TEMPLATE: {
+            return {
+                ...state,
                 fetchingWorkflowTemplates: false,
             };
         }

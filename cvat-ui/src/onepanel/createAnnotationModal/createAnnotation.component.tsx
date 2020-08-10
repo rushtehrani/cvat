@@ -307,24 +307,25 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 const sysOutputPath = parameters.find((param: WorkflowParameters) => param.name === "sys-output-path");
                 const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === "sys-annotation-path");
 
-                if (sysNodePoolParam) {
-                    const nodePoolResp = await core.server.request(`${baseUrl}/onepanelio/get_node_pool`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                    });
-                    let { node_pool } = nodePoolResp;
-                    this.setState({
-                        allSysNodePools: {
-                            ...node_pool,
-                            hint: sysNodePoolParam.hint,
-                            display_name: sysNodePoolParam.display_name ? sysNodePoolParam.display_name : sysNodePoolParam.name
-                        },
-                        defaultSysNodePoolVal: sysNodePoolParam.value,
-                        selectedNodePool: node_pool.options.find((node: NodePoolParameters) => node.value === sysNodePoolParam.value)
-                    });
-                }
+                try {
+                    if (sysNodePoolParam) {
+                        const nodePoolResp = await core.server.request(`${baseUrl}/onepanelio/get_node_pool`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                        });
+                        let { node_pool } = nodePoolResp;
+                        this.setState({
+                            allSysNodePools: {
+                                ...node_pool,
+                                hint: sysNodePoolParam.hint,
+                                display_name: sysNodePoolParam.display_name ? sysNodePoolParam.display_name : sysNodePoolParam.name
+                            },
+                            defaultSysNodePoolVal: sysNodePoolParam.value,
+                            selectedNodePool: node_pool.options.find((node: NodePoolParameters) => node.value === sysNodePoolParam.value)
+                        });
+                    }
 
                 if (sysFinetuneCheckpoint) {
                     const specificModelsResp = await core.server.request(`${baseUrl}/onepanelio/get_base_model`, {
@@ -355,7 +356,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     }
                 }
 
-                try {
                     if (sysOutputPath) {
                         const sysOutputPathResp = await core.server.request(`${baseUrl}/onepanelio/get_output_path/${taskInstance.id}`, {
                             method: 'POST',
@@ -372,6 +372,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                             }
                         });
                     }
+                    
                     if (sysAnnotationPath) {
                         const sysAnnotationPathResp = await core.server.request(`${baseUrl}/onepanelio/get_annotation_path/${taskInstance.id}`, {
                             method: 'POST',
@@ -393,7 +394,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 }
 
                 workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
-                    if (param.name !== "sys-node-pool" && param.name !== "sys-output-path" && 
+                    if (param.name !== "sys-node-pool" && param.name !== "sys-output-path" &&
                         param.name !== "sys-annotation-path" && param.name !== "sys-finetune-checkpoint") {
                         workflowParamNameValue = {
                             ...workflowParamNameValue,
@@ -404,21 +405,20 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     return false;
                 })
 
-                const {dump_formats} = await core.server.request(`${baseUrl}/onepanelio/get_available_dump_formats`, {
+                const { dump_formats } = await core.server.request(`${baseUrl}/onepanelio/get_available_dump_formats`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                 });
-
                 const dumpFormat = parameters.find((param: WorkflowParameters) => param.name === "dump-format");
-                if(!dumpFormat.value) {
+                if (!dumpFormat || !dumpFormat.value) {
                     this.setState({
                         allDumpFormats: dump_formats,
                     });
                 } else {
                     let dumpFormatInParams = dump_formats.find((dump: DumpFormats) => dump.tag === dumpFormat.value);
-                    if(dumpFormatInParams) {
+                    if (dumpFormatInParams) {
                         this.setState({
                             selectedDumpFormat: dumpFormatInParams
                         })
@@ -561,7 +561,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                         </Row> : null
                 }
 
-                {
+{
                     this.state.allSysFinetuneCheckpoint.options ? this.state.allSysFinetuneCheckpoint.options.length ?
                         <Row type='flex' align='middle'>
                             <Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col>
@@ -610,6 +610,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                             </Col>
                         </Row>
                 }
+
                 {
                     this.state.sysOutputPath.value ?
                         <Row type='flex' align='middle'>
@@ -728,7 +729,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             )
         }
 
-        if(this.state.getingParameters) {
+        if (this.state.getingParameters) {
             footerElements.push(
                 <span key={"paramMessage"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
                     <Spin /> &nbsp; &nbsp;
@@ -737,7 +738,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             )
         }
 
-        if(fetchingWorkflowTemplates) {
+        if (fetchingWorkflowTemplates) {
             footerElements.push(
                 <span key={"fetchMessage"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
                     <Spin /> &nbsp; &nbsp;
@@ -745,7 +746,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 </span>
             )
         }
-
 
         const checkSubmitEnable = () => {
             if (this.state.workflowTemplate!.uid && this.state.selectedDumpFormat) {

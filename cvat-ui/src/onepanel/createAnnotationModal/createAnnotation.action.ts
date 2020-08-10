@@ -9,6 +9,7 @@ export enum CreateAnnotationActionTypes {
     OPEN_NEW_ANNOTATION_DIALOG = 'SHOW_NEW_ANNOTATION_DIALOG',
     GET_WORKFLOW_TEMPLATES_SUCCESS = 'GET_WORKFLOW_TEMPLATES_SUCCESS',
     GET_WORKFLOW_TEMPLATES_ERROR = 'GET_WORKFLOW_TEMPLATES_ERROR',
+    HIDE_FETCHING_WORKFLOW_TEMPLATE = 'HIDE_FETCHING_WORKFLOW_TEMPLATE',
     CLOSE_NEW_ANNOTATION_DIALOG = 'CLOSE_NEW_ANNOTATION_DIALOG',
     GET_BASE_MODEL = 'GET_BASE_MODEL',
 }
@@ -20,6 +21,7 @@ export const createAnnotationAction = {
             taskInstance,
          },
     ),
+    
     getWorflowTemplatesSuccess: (workflowTemplates: WorkflowTemplates[]) => createAction(
         CreateAnnotationActionTypes.GET_WORKFLOW_TEMPLATES_SUCCESS,
         { workflowTemplates }
@@ -27,6 +29,9 @@ export const createAnnotationAction = {
     getWorflowTemplatesError: () => createAction(
         CreateAnnotationActionTypes.GET_WORKFLOW_TEMPLATES_ERROR,
         { workflowTemplates: [] }
+    ),
+    hideFetchingWorkflow: () => createAction(
+        CreateAnnotationActionTypes.HIDE_FETCHING_WORKFLOW_TEMPLATE,
     ),
     closeNewAnnotationDialog: () => createAction(CreateAnnotationActionTypes.CLOSE_NEW_ANNOTATION_DIALOG),
     getBaseModelList: (baseModelList: string[]) => createAction(
@@ -65,6 +70,7 @@ export function getWorkflowTemplateAsync(taskInstance: any) : ThunkAction {
                     method: 'POST',
                 }
             );
+            dispatch(createAnnotationAction.hideFetchingWorkflow());
             if(response.count) {
                 const workflowTemplates: WorkflowTemplates[] = response.workflow_templates.map((workflow: any) => (
                     {
