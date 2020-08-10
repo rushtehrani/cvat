@@ -129,7 +129,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     private showErrorNotification = (error: any): void => {
         notification.error({
             message: 'Execute Workflow failed.',
-            description: `Execute Workflow failed (Error code: ${error.code}). Please try again later`,
+            description: `Execute workflow failed (Error code: ${error.code}). Please try again later`,
             duration: 5,
         });
     }
@@ -395,7 +395,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 
                 workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
                     if (param.name !== "sys-node-pool" && param.name !== "sys-output-path" &&
-                        param.name !== "sys-annotation-path" && param.name !== "sys-finetune-checkpoint") {
+                        param.name !== "sys-annotation-path" && param.name !== "sys-finetune-checkpoint" && param.name !== "dump-format") {
                         workflowParamNameValue = {
                             ...workflowParamNameValue,
                             [param.name]: param.value
@@ -442,6 +442,11 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 });
             } catch (error) {
                 // this.showErrorNotification(error);
+                this.setState({
+                    isLoading: false,
+                    executingAnnotation: false,
+                    getingParameters: false,
+                })
             }
         }
     }
@@ -451,6 +456,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         const {
             workflowTemplates,
         } = this.props
+
+        console.log(this.state)
 
         return (
             <React.Fragment>
