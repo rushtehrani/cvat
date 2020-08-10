@@ -458,10 +458,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         return (
             <React.Fragment>
                 <Row type='flex' align='middle'>
-                    <Col span={6}>Select workflow template:</Col>
+                    <Col span={6}>Select Workflow template:</Col>
                     <Col span={17}>
                         <Select
-                            placeholder='Select a workflow template'
+                            placeholder='Select a Workflow template'
                             style={{ width: '100%' }}
                             onChange={this.onWorkflowTemplateChange.bind(this)}
                         >
@@ -485,7 +485,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                     {
                                         workflowParams.type && workflowParams.type.toLowerCase() === "select.select" ?
                                             <Select
-                                                placeholder='Select a workflow parameter'
+                                                placeholder='Select a Workflow parameter'
                                                 style={{ width: '100%' }}
                                                 defaultValue={
                                                     this.state.selectedWorkflowParam[workflowParams.name]
@@ -790,7 +790,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 <Modal
                     closable={false}
                     footer={this.footerComponent()}
-                    title='Execute training workflow'
+                    title='Execute training Workflow'
                     visible
                     width="50%"
                 >
