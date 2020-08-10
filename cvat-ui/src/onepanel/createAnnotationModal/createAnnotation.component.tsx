@@ -425,10 +425,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     } else {
                         this.setState({
                             allDumpFormats: dump_formats,
-                            selectedDumpFormat: {
-                                tag: dumpFormat.value,
-                                name: dumpFormat.value
-                            },
                             showDumpFormatHint: true,
                         })
                     }
