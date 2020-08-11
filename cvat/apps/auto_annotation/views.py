@@ -55,8 +55,13 @@ def create_model(request):
         is_shared = params["shared"].lower() == "true"
         if is_shared and not has_admin_role(request.user):
             raise Exception("Only admin can create shared models")
-
-        files = request.FILES if storage == "local" else params
+        # files = request.FILES if storage == "local" else []
+        if storage == "local":
+            files = request.FILES
+        elif params['pb']:
+            files = {'csv':params['csv'], 'pb':params['pb']}
+        elif params['h5']:
+            files = {'csv':params['csv'], 'h5':params['h5']} 
         is_custom = "openvino"
         if "pb" in files:
             labelmap = files["csv"]

@@ -273,7 +273,7 @@ export function createModelAsync(name: string, files: ModelFiles | CsvModelFiles
         dispatch(modelsActions.createModel());
         const data = new FormData();
         data.append('name', name);
-        data.append('storage', typeof files.bin === 'string' ? 'shared' : 'local');
+        data.append('storage', typeof files.bin === 'object' || typeof files.csv === 'object' ? 'local' : 'shared');
         data.append('shared', global.toString());
         Object.keys(files).reduce((acc, key: string): FormData => {
             acc.append(key, files[key]);

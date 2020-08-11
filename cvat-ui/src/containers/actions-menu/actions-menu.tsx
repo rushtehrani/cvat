@@ -14,7 +14,7 @@ import {
 } from 'reducers/interfaces';
 
 import { modelsActions } from 'actions/models-actions';
-import { getWorkflowTemplateAsync } from 'onepanel/createAnnotationModal/createAnnotation.action';
+import { getWorkflowTemplateAsync } from 'onepanelio/createAnnotationModal/createAnnotation.action';
 import {
     dumpAnnotationsAsync,
     loadAnnotationsAsync,

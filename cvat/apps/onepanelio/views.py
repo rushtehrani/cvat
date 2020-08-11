@@ -245,7 +245,6 @@ def create_annotation_model(request, pk):
     """
     global all_parameters
     all_parameter_names = [p['name'] for p in all_parameters] 
-    print(all_parameter_names)
     db_task = TaskModel.objects.get(pk=pk)
     db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
     db_labels = {db_label.id:db_label.name for db_label in db_labels}

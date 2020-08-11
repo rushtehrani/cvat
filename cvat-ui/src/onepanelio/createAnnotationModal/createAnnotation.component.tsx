@@ -225,7 +225,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     private async onExecuteWorkflow(): Promise<void> {
         const {
             taskInstance,
-            closeDialog
+            closeDialog,
         } = this.props;
         const {
             workflowTemplate,
@@ -279,6 +279,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     }
 
     private onWorkflowTemplateChange = async (value: string) => {
+        
         const {
             taskInstance,
             workflowTemplates,
@@ -390,7 +391,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                         });
                     }
                 } catch (e) {
-
+                    throw new Error();
                 }
 
                 workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
@@ -442,7 +443,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     isLoading: false,
                     executingAnnotation: false,
                     getingParameters: false,
-                })
+                });
             }
         }
     }
@@ -522,7 +523,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                     }
                                     {
                                         workflowParams.hint ?
-                                            <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{workflowParams.hint}</div> :
+                                            <div 
+                                                style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
+                                                dangerouslySetInnerHTML={{__html: workflowParams.hint}}
+                                            ></div> :
                                             null
                                     }
                                 </Col>
@@ -557,7 +561,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 </Select>
                                 {
                                     this.state.allSysNodePools.hint ?
-                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.allSysNodePools.hint}</div> :
+                                        <div 
+                                            style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
+                                            dangerouslySetInnerHTML={{__html: this.state.allSysNodePools.hint}}
+                                        ></div> :
                                         null
                                 }
                             </Col>
@@ -588,7 +595,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 </Select>
                                 {
                                     this.state.allSysFinetuneCheckpoint.hint ?
-                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.allSysFinetuneCheckpoint.hint}</div> :
+                                        <div 
+                                            style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
+                                            dangerouslySetInnerHTML={{__html: this.state.allSysFinetuneCheckpoint.hint}}
+                                        ></div> :
                                         null
                                 }
                             </Col>
@@ -607,7 +617,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 />
                                 {
                                     this.state.allSysFinetuneCheckpoint.hint ?
-                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.allSysFinetuneCheckpoint.hint}</div> :
+                                        <div 
+                                            style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
+                                            dangerouslySetInnerHTML={{__html: this.state.allSysFinetuneCheckpoint.hint}}
+                                        ></div> :
                                         null
                                 }
                             </Col>
@@ -631,7 +644,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 />
                                 {
                                     this.state.sysOutputPath.hint ?
-                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.sysOutputPath.hint}</div> :
+                                        <div
+                                            style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
+                                            dangerouslySetInnerHTML={{__html: this.state.sysOutputPath.hint}}
+                                        ></div> :
                                         null
                                 }
                             </Col>
@@ -655,7 +671,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 />
                                 {
                                     this.state.sysAnnotationPath.hint ?
-                                        <div style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}>{this.state.sysAnnotationPath.hint}</div> :
+                                        <div 
+                                            style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
+                                            dangerouslySetInnerHTML={{__html: this.state.sysAnnotationPath.hint}}
+                                        ></div> :
                                         null
                                 }
                             </Col>

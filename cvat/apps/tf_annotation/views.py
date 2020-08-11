@@ -155,7 +155,7 @@ def run_tensorflow_annotation(tid, image_list, labels_mapping, treshold, model_p
 	result = {}
 	local_device_protos = device_lib.list_local_devices()
 	num_gpus = len([x.name for x in local_device_protos if x.device_type == 'GPU'])
-	if "inference" in model_path:
+	if "inference" in model_path and not model_path.endswith('pb'):
 		model_path += ".pb"
 	if not os.path.isfile(model_path):
 		raise OSError('TF Annotation Model path does not point to a file.')
@@ -397,10 +397,7 @@ def get_meta_info(request):
 		return JsonResponse(result)
 	except Exception as ex:
 		slogger.glob.exception('exception was occured during tf meta request', exc_into=True)
-		return HttpResponseBadRequest(str(ex))
-
-
-@login_required
+		return HttpResponseBadRequest(str(ex))model id
 @permission_required(perm=['engine.task.change'],
 					 fn=objectgetter(TaskModel, 'tid'), raise_exception=True)
 

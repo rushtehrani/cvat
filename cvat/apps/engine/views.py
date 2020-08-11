@@ -195,7 +195,7 @@ class ServerViewSet(viewsets.ViewSet):
 		if param.startswith("/"):
 			param = param[1:]
 		directory = os.path.abspath(os.path.join(settings.SHARE_ROOT, param))
-
+        
 		if directory.startswith(settings.SHARE_ROOT) and os.path.isdir(directory):
 			data = []
 			content = os.scandir(directory)

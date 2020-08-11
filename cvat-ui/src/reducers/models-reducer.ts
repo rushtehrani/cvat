@@ -4,7 +4,7 @@
 
 import { boundariesActions, BoundariesActionTypes } from 'actions/boundaries-actions';
 import { ModelsActionTypes, ModelsActions } from 'actions/models-actions';
-import {CreateAnnotationActionTypes, CreateAnnotationActions } from 'onepanel/createAnnotationModal/createAnnotation.action';
+import {CreateAnnotationActionTypes, CreateAnnotationActions } from 'onepanelio/createAnnotationModal/createAnnotation.action';
 import { AuthActionTypes, AuthActions } from 'actions/auth-actions';
 import { ModelsState } from './interfaces';
 
