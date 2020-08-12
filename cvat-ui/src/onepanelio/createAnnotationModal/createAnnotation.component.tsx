@@ -506,7 +506,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                             </Select> : null
                                     }
                                     {
-                                        (!workflowParams.type || workflowParams.type.toLowerCase() === "textarea") ?
+                                        (!workflowParams.type || workflowParams.type.toLowerCase() === "textarea.textarea") ?
                                             <TextArea
                                                 autoSize={{ minRows: 1, maxRows: 4 }}
                                                 name={workflowParams.name}
@@ -603,8 +603,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 }
                             </Col>
                         </Row> : null :                         <Row type='flex' align='middle'>
-                            <Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col>
-                            <Col span={17}>
+                            <Col span={24}>
+                                <label className='cvat-text-color ant-form-item-label'><Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col></label>
                                 <TextArea
                                     autoSize={{ minRows: 1, maxRows: 4 }}
                                     value={this.state.allSysFinetuneCheckpoint.value || ""}
@@ -803,7 +803,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     closable={false}
                     footer={this.footerComponent()}
                     title={[
-                        <Row>
+                        <Row key={0}>
                             <Col span={12}>Execute training Workflow</Col>
                             <Col span={12} className='cvat-create-anno-modal-link'>
                             </Col>
