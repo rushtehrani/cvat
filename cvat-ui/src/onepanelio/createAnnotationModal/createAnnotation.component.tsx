@@ -192,7 +192,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         if (count == 0) {
             notification.open({
                 message: 'Are you sure?',
-                description: `There aren’t any annotations in this task. 
+                description: `There aren’t any annotations in this task.
                 If you workflow depends on this data it may throw an error. Do you want to continue?`,
                 duration: 0,
                 btn,
@@ -201,7 +201,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         } else if (count < 100) {
             notification.open({
                 message: 'Are you sure?',
-                description: `Number of annotations is less than 100. 
+                description: `Number of annotations is less than 100.
                 Deep learning models work better with large datasets. Are you sure you want to continue?`,
                 duration: 0,
                 btn,
@@ -279,7 +279,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     }
 
     private onWorkflowTemplateChange = async (value: string) => {
-        
+
         const {
             taskInstance,
             workflowTemplates,
@@ -373,7 +373,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                             }
                         });
                     }
-                    
+
                     if (sysAnnotationPath) {
                         const sysAnnotationPathResp = await core.server.request(`${baseUrl}/onepanelio/get_annotation_path/${taskInstance.id}`, {
                             method: 'POST',
@@ -459,8 +459,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         return (
             <React.Fragment>
                 <Row type='flex' align='middle'>
-                    <Col span={6}>Select Workflow template:</Col>
-                    <Col span={17}>
+                    <Col span={24}>
+                        <label className='cvat-text-color ant-form-item-label'>Select Workflow template:</label>
                         <Select
                             placeholder='Select a Workflow template'
                             style={{ width: '100%' }}
@@ -481,8 +481,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                     this.state.allWorkflowParameters.map((workflowParams, index) => {
                         return (
                             <Row type='flex' align='middle' key={index}>
-                                <Col span={6}>{workflowParams.display_name ? workflowParams.display_name : workflowParams.name}:</Col>
-                                <Col span={17}>
+                                <Col span={24}>
+                                    <label className='cvat-text-color ant-form-item-label'>{ workflowParams.display_name ? workflowParams.display_name : workflowParams.name }:</label>
                                     {
                                         workflowParams.type && workflowParams.type.toLowerCase() === "select.select" ?
                                             <Select
@@ -523,7 +523,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                     }
                                     {
                                         workflowParams.hint ?
-                                            <div 
+                                            <div
                                                 style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
                                                 dangerouslySetInnerHTML={{__html: workflowParams.hint}}
                                             ></div> :
@@ -538,8 +538,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 {
                     this.state.allSysNodePools.options.length ?
                         <Row type='flex' align='middle'>
-                            <Col span={6}>{this.state.allSysNodePools.display_name}: &nbsp;<span style={{ color: "red" }}>*</span></Col>
-                            <Col span={17}>
+                            <Col span={24}>
+                                <label className='cvat-text-color ant-form-item-label'>
+                                    {this.state.allSysNodePools.display_name}: &nbsp;<span style={{ color: "red" }}>*</span>
+                                </label>
                                 <Select
                                     placeholder='Select a system node pool'
                                     style={{ width: '100%' }}
@@ -561,7 +563,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 </Select>
                                 {
                                     this.state.allSysNodePools.hint ?
-                                        <div 
+                                        <div
                                             style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
                                             dangerouslySetInnerHTML={{__html: this.state.allSysNodePools.hint}}
                                         ></div> :
@@ -574,8 +576,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 {
                     this.state.allSysFinetuneCheckpoint.options ? this.state.allSysFinetuneCheckpoint.options.length ?
                         <Row type='flex' align='middle'>
-                            <Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col>
-                            <Col span={17}>
+                            <Col span={24}>
+                                <label className='cvat-text-color ant-form-item-label'>{this.state.allSysFinetuneCheckpoint.display_name}:</label>
                                 <Select
                                     placeholder='Select a checkpoint path'
                                     style={{ width: '100%' }}
@@ -595,7 +597,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 </Select>
                                 {
                                     this.state.allSysFinetuneCheckpoint.hint ?
-                                        <div 
+                                        <div
                                             style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
                                             dangerouslySetInnerHTML={{__html: this.state.allSysFinetuneCheckpoint.hint}}
                                         ></div> :
@@ -617,7 +619,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 />
                                 {
                                     this.state.allSysFinetuneCheckpoint.hint ?
-                                        <div 
+                                        <div
                                             style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
                                             dangerouslySetInnerHTML={{__html: this.state.allSysFinetuneCheckpoint.hint}}
                                         ></div> :
@@ -630,8 +632,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 {
                     this.state.sysOutputPath.value ?
                         <Row type='flex' align='middle'>
-                            <Col span={6}>{this.state.sysOutputPath.display_name}:</Col>
-                            <Col span={17}>
+                            <Col span={24}>
+                                <label className='cvat-text-color ant-form-item-label'>{this.state.sysOutputPath.display_name}:</label>
                                 <TextArea
                                     autoSize={{ minRows: 1, maxRows: 4 }}
                                     value={this.state.sysOutputPath.value || ""}
@@ -657,8 +659,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 {
                     this.state.sysAnnotationPath.value ?
                         <Row type='flex' align='middle'>
-                            <Col span={6}>{this.state.sysAnnotationPath.display_name}:</Col>
-                            <Col span={17}>
+                            <Col span={24}>
+                                <label className='cvat-text-color ant-form-item-label'>{this.state.sysAnnotationPath.display_name}:</label>
                                 <TextArea
                                     autoSize={{ minRows: 1, maxRows: 4 }}
                                     value={this.state.sysAnnotationPath.value || ""}
@@ -671,7 +673,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                 />
                                 {
                                     this.state.sysAnnotationPath.hint ?
-                                        <div 
+                                        <div
                                             style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
                                             dangerouslySetInnerHTML={{__html: this.state.sysAnnotationPath.hint}}
                                         ></div> :
@@ -684,8 +686,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 {
                     this.state.allDumpFormats.length ?
                         <Row type='flex' align='middle'>
-                            <Col span={6}>Select dump format: &nbsp;<span style={{ color: "red" }}>*</span></Col>
-                            <Col span={17}>
+                            <Col span={24}>
+                                <label className='cvat-text-color ant-form-item-label'>Select dump format: &nbsp;<span style={{ color: "red" }}>*</span></label>
                                 <Select
                                     placeholder='Select a dump format'
                                     style={{ width: '100%' }}
@@ -723,13 +725,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     private renderContent(): JSX.Element {
         return (
             <div className='cvat-run-model-dialog'>
-                <div className="cvat-create-anno-modal-link cvat-create-anno-text-align" >
-                    <a
-                        href={`https://docs.onepanel.ai/docs/getting-started/use-cases/computervision/annotation/cvat/cvat_annotation_model#training-object-detection-model-through-cvat`}
-                        target='_blank'>
-                        How to use
-                    </a>
-                </div>
                 {this.renderModelSelector()}
             </div>
         );
@@ -809,7 +804,18 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 <Modal
                     closable={false}
                     footer={this.footerComponent()}
-                    title='Execute training Workflow'
+                    title={[
+                        <Row>
+                            <Col span={12}>Execute training Workflow</Col>
+                            <Col span={12} className='cvat-create-anno-modal-link'>
+                                <a
+                                    href={`https://docs.onepanel.ai/docs/getting-started/use-cases/computervision/annotation/cvat/cvat_annotation_model#training-object-detection-model-through-cvat`}
+                                    target='_blank'>
+                                    How to use
+                                </a>
+                            </Col>
+                        </Row>
+                        ]}
                     visible
                     width="50%"
                 >
