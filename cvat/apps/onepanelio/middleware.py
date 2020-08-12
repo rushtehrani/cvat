@@ -19,14 +19,10 @@ class AutomaticUserLoginMiddleware(MiddlewareMixin):
                 # admin in the database
                 username = "admin"
                 user = UserModel._default_manager.get_by_natural_key(username)
-                # todo - Inspect these if checks, are they necessary on first run?
                 if user is None:
-                    print("user is none inside of middleware mixin")
                     return HttpResponseForbidden()
                 current_cookie_token = AuthToken.get_auth_token(request)
-                if user.check_password(current_cookie_token):
-                    print("browser cookie matches admin in db, safe to continue")
-                else:
+                if not user.check_password(current_cookie_token):
                     return HttpResponseForbidden()
             if user is None:
                 return HttpResponseForbidden()
