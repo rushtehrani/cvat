@@ -538,7 +538,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                         <Row type='flex' align='middle'>
                             <Col span={24}>
                                 <label className='cvat-text-color ant-form-item-label'>
-                                    {this.state.allSysNodePools.display_name}: &nbsp;<span style={{ color: "red" }}>*</span>
+                                    {this.state.allSysNodePools.display_name}:
                                 </label>
                                 <Select
                                     placeholder='Select a system node pool'
@@ -802,13 +802,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 <Modal
                     closable={false}
                     footer={this.footerComponent()}
-                    title={[
-                        <Row key={0}>
-                            <Col span={12}>Execute training Workflow</Col>
-                            <Col span={12} className='cvat-create-anno-modal-link'>
-                            </Col>
-                        </Row>
-                        ]}
+                    title={'Execute training Workflow'}
                     visible
                     width="50%"
                 >
