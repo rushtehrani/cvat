@@ -806,11 +806,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                         <Row>
                             <Col span={12}>Execute training Workflow</Col>
                             <Col span={12} className='cvat-create-anno-modal-link'>
-                                <a
-                                    href={`https://docs.onepanel.ai/docs/getting-started/use-cases/computervision/annotation/cvat/cvat_annotation_model#training-object-detection-model-through-cvat`}
-                                    target='_blank'>
-                                    How to use
-                                </a>
                             </Col>
                         </Row>
                         ]}
