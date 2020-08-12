@@ -397,10 +397,10 @@ def get_meta_info(request):
 		return JsonResponse(result)
 	except Exception as ex:
 		slogger.glob.exception('exception was occured during tf meta request', exc_into=True)
-		return HttpResponseBadRequest(str(ex))model id
+		return HttpResponseBadRequest(str(ex))
+
 @permission_required(perm=['engine.task.change'],
 					 fn=objectgetter(TaskModel, 'tid'), raise_exception=True)
-
 def create(request, tid, mid):
 	slogger.glob.info('tf annotation create request for task {}'.format(tid))
 	try:
