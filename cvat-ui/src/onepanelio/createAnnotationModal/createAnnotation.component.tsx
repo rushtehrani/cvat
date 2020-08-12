@@ -454,8 +454,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             workflowTemplates,
         } = this.props
 
-        console.log(this.state)
-
         return (
             <React.Fragment>
                 <Row type='flex' align='middle'>
@@ -573,7 +571,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                         </Row> : null
                 }
 
-{
+                {
                     this.state.allSysFinetuneCheckpoint.options ? this.state.allSysFinetuneCheckpoint.options.length ?
                         <Row type='flex' align='middle'>
                             <Col span={24}>

@@ -1550,7 +1550,6 @@ export function doTracking(body: any, taskId: string): ThunkAction<Promise<void>
                     'Content-Type': 'application/json',
                 },
             }).then((response: any) => {
-                console.log(response)
                 dispatch({
                     type: AnnotationActionTypes.DO_TRACKING_SUCCESS,
                 });
