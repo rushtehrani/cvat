@@ -508,7 +508,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                     {
                                         (!workflowParams.type || workflowParams.type.toLowerCase() === "textarea.textarea") ?
                                             <TextArea
-                                                autoSize={{ minRows: 1, maxRows: 4 }}
+                                                autoSize={{ minRows: 5, maxRows: 5 }}
                                                 name={workflowParams.name}
                                                 value={this.state.selectedWorkflowParam[workflowParams.name]}
                                                 onChange={(event) => this.setState({
