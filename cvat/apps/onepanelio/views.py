@@ -25,8 +25,8 @@ from rest_framework.decorators import api_view
 import yaml
 
 def onepanel_authorize(request):
-    auth_token = AuthToken.get_auth_token(request)
-    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    # auth_token = AuthToken.get_auth_token(request)
+    auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
         api_key = { 'Bearer': auth_token})
@@ -153,7 +153,7 @@ def generate_output_path(uid, pk):
     stamp = time.strftime("%m%d%Y%H%M%S")
     db_task = TaskModel.objects.get(pk=pk)
     dir_name = db_task.name + '/' + form_data['uid'] + '/' + stamp
-    prefix = 'workflow-data/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output')
+    prefix = os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output')
     output = prefix + '/' + dir_name + '/'
     return Response({'name':output})
 
@@ -171,9 +171,10 @@ def get_model_keys(request):
     try:
         form_data = request.data
         # bucket_name = authenticate_cloud_storage()
-        checkpoints = [i[0] for i in os.walk('/home/django/share/output') if form_data['uid']+'/' in i[0]]
-        checkpoint_paths = [os.path.join(*['workflow-data']+c.split("/")[-4:]) for c in checkpoints]
-        return Response({'keys':checkpoint_paths})
+        checkpoints = [i[0] for i in os.walk('/home/django/share/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')) if form_data['uid']+'/' in i[0]]
+        checkpoint_paths = [os.path.join(*[os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')]+c.split("/")[-4:]) for c in checkpoints]
+        checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 5 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output'))] 
+        return Response({'keys':checkpoint_path_filtered})
     except:
         return Response({'keys':[]})
 
@@ -248,7 +249,7 @@ def create_annotation_model(request, pk):
     db_task = TaskModel.objects.get(pk=pk)
     db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
-    # num_classes = len(db_labels.values())
+    num_classes = len(db_labels.values())
 
     form_data = request.data
     slogger.glob.info("Form data without preprocessing {} {}".format(form_data, type(form_data)))
@@ -262,7 +263,7 @@ def create_annotation_model(request, pk):
     # dump training data on cloud
     # if 'sys-annotation-path' in form_data['parameters']:
     annotation_path = 'annotation-dump' + '/' + db_task.name + '/' + stamp + '/'
-    output_path = 'workflow-data' + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + stamp + '/'
+    output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + stamp + '/'
     
     if 'sys-annotation-path' in all_parameter_names:
         dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
@@ -289,6 +290,11 @@ def create_annotation_model(request, pk):
             params.append(Parameter(name='sys-output-path', value=output_path))
         if 'dump-format' in all_parameter_names:
             params.append(Parameter(name='dump-format', value=form_data['dump_format']))
+        if 'sys-num-classes' in all_parameter_names:
+            if form_data['workflow_template'] == 'maskrcnn-training':
+                params.append(Parameter(name='sys-num-classes', value=str(num_classes+1)))
+            else:
+                params.append(Parameter(name='sys-num-classes', value=str(num_classes)))
         
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
         workflow_template_uid = form_data['workflow_template']) 
