@@ -25,8 +25,8 @@ from rest_framework.decorators import api_view
 import yaml
 
 def onepanel_authorize(request):
-    # auth_token = AuthToken.get_auth_token(request)
-    auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    auth_token = AuthToken.get_auth_token(request)
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
         api_key = { 'Bearer': auth_token})
@@ -108,7 +108,7 @@ def get_workflow_parameters(request):
     """
     # read workflow_uid and workflow_version from request payload
     global all_parameters
-    form_data = json.loads(request.body.decode('utf-8'))
+    form_data = request.data
 
     configuration = onepanel_authorize(request)
 
@@ -169,7 +169,7 @@ def generate_dataset_path(uid, pk):
 @api_view(['POST'])
 def get_model_keys(request):
     try:
-        form_data = json.loads(request.body.decode('utf-8'))
+        form_data = request.data
         # bucket_name = authenticate_cloud_storage()
         checkpoints = [i[0] for i in os.walk('/home/django/share/output') if form_data['uid']+'/' in i[0]]
         checkpoint_paths = [os.path.join(*['workflow-data']+c.split("/")[-4:]) for c in checkpoints]
@@ -250,7 +250,7 @@ def create_annotation_model(request, pk):
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
     # num_classes = len(db_labels.values())
 
-    form_data = json.loads(request.body.decode('utf-8'))
+    form_data = request.data
     slogger.glob.info("Form data without preprocessing {} {}".format(form_data, type(form_data)))
  
     # form_args = form_data['arguments']

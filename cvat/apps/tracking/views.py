@@ -46,7 +46,7 @@ def convert_to_cvat_format(data):
 @login_required
 @permission_required(perm=['engine.task.access'], raise_exception=True)
 def tracking(request, tid):
-	data = json.loads(request.body.decode('utf-8'))
+	data = request.data
 	slogger.glob.info("tracking payload {}".format(data))
 	tracking_job = data['trackingJob']
 	job_id = data['jobId']
