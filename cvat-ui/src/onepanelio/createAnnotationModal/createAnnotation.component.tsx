@@ -53,6 +53,7 @@ interface State {
     allSysFinetuneCheckpoint: DefaultSysParams;
     selectedFinetuneCheckpoint: string | null;
     showDumpFormatHint: boolean;
+    submitEnabled: boolean;
 }
 
 interface CreateAnnotationSubmitData {
@@ -74,8 +75,9 @@ const machines = getMachineNames();
 const InitialState = {
     isLoading: true,
     executingAnnotation: false,
-    getingParameters: false,
+    gettingParameters: false,
     workflowTemplate: {
+        name: "",
         uid: "",
         version: ""
     },
@@ -108,6 +110,8 @@ const InitialState = {
     },
     selectedFinetuneCheckpoint: null,
     showDumpFormatHint: false,
+    submitEnabled: true
+
 }
 
 export default class ModelNewAnnotationModalComponent extends React.PureComponent<Props, State> {
@@ -141,18 +145,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             closeDialog
         } = this.props;
 
-        const baseUrl: string = core.config.backendAPI.slice(0, -7);
-
-        let countResp = await core.server.request(`${baseUrl}/onepanelio/get_object_counts/${taskInstance.id}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
         const {
             shapes,
             tracks,
-        } = countResp;
+        } = await OnepanelApi.getObjectCounts(taskInstance.id);
 
         if (tracks.length) {
             return this.onExecuteWorkflow();
@@ -261,22 +257,35 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             finalPayload.parameters["sys-finetune-checkpoint"] = selectedFinetuneCheckpoint ? selectedFinetuneCheckpoint : allSysFinetuneCheckpoint.value;
         }
 
-        const baseUrl: string = core.config.backendAPI.slice(0, -7);
-        let successResp = await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
-            method: 'POST',
-            data: finalPayload,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
+        try {
+            const baseUrl: string = core.config.backendAPI.slice(0, -7);
+            let successResp = await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
+                method: 'POST',
+                data: finalPayload,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
 
-        notification.open({
-            message: 'Execute Workflow',
-            duration: 0,
-            description: this.ExecuteSuccessMessage(workflowTemplate!.uid, successResp.url)
-        });
+            notification.open({
+                message: 'Execute Workflow',
+                duration: 0,
+                description: this.ExecuteSuccessMessage(workflowTemplate!.uid, successResp.url)
+            });
 
-        closeDialog();
+            closeDialog();
+        } catch (e) {
+            this.setState({
+                executingAnnotation: false,
+                submitEnabled: true
+            });
+
+            notification.error({
+                message: 'Error',
+                duration: 0,
+                description: 'There was an error executing the workflow'
+            });
+        }
     }
 
     private onWorkflowTemplateChange = async (value: string) => {
@@ -749,6 +758,11 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         }
 
         const checkSubmitEnable = () => {
+            // If we are executing, don't allow them to submit it again.
+            if(this.state.executingAnnotation) {
+                return false;
+            }
+
             if (this.state.workflowTemplate!.uid && this.state.selectedDumpFormat) {
                 if ((this.state.allSysNodePools.options.length && this.state.selectedNodePool) || !this.state.allSysNodePools.options.length) {
                     return false;
@@ -765,8 +779,14 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             }}>
                 Cancel
             </Button>,
-            <Button key="submit" type="primary" disabled={checkSubmitEnable()} onClick={(): void => {
+            <Button key="submit" type="primary" disabled={!this.state.submitEnabled} onClick={(): void => {
+                this.setState({
+                    submitEnabled: checkSubmitEnable()
+                })
                 this.handleSubmit();
+                this.setState({
+                    submitEnabled: checkSubmitEnable()
+                })
             }}>
                 Submit
             </Button>,
