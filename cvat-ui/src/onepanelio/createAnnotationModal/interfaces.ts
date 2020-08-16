@@ -22,6 +22,7 @@ export type ThunkAction<R = void, A extends Action = AnyAction>
 export interface WorkflowTemplates {
     uid: string;
     version: string;
+    name: string;
 }
 
 export interface WorkflowParameters {

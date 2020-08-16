@@ -74,7 +74,8 @@ export function getWorkflowTemplateAsync(taskInstance: any) : ThunkAction {
             if(response.count) {
                 const workflowTemplates: WorkflowTemplates[] = response.workflow_templates.map((workflow: any) => (
                     {
-                        uid: workflow.uid, 
+                        uid: workflow.uid,
+                        name: workflow.name,
                         version: workflow.version == "none" || workflow.version == null ? "0" : workflow.version,
                     }
                 ))

@@ -467,7 +467,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                             {
                                 workflowTemplates.map((workflow: WorkflowTemplates) =>
                                     <Select.Option value={workflow.uid} key={workflow.uid}>
-                                        {workflow.uid}
+                                        {workflow.name}
                                     </Select.Option>
                                 )
                             }
