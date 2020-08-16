@@ -74,8 +74,9 @@ const machines = getMachineNames();
 const InitialState = {
     isLoading: true,
     executingAnnotation: false,
-    getingParameters: false,
+    gettingParameters: false,
     workflowTemplate: {
+        name: "",
         uid: "",
         version: ""
     },
