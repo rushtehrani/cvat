@@ -61,5 +61,14 @@ export const OnepanelApi = {
                 'Content-Type': 'application/json',
             },
         });
+    },
+
+    async getObjectCounts(id: string) {
+        return core.server.request(`${baseUrl}/onepanelio/get_object_counts/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
     }
 };
