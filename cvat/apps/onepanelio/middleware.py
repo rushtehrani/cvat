@@ -26,11 +26,11 @@ class OnepanelCoreTokenAuthentication(BaseAuthentication):
             raise exceptions.AuthenticationFailed(msg)
 
         # Djago automatically upper-cases headers, converts "-" to "_", adds HTTP
-        onepanel_header = request.META.get('HTTP_ONEPANEL_AUTH_TOKEN', b'')
-        if isinstance(onepanel_header, text_type):
+        auth_header = request.META.get('HTTP_ONEPANEL_AUTH_TOKEN', b'')
+        if isinstance(auth_header, text_type):
             # Work around django test client oddness
-            onepanel_header = onepanel_header.encode(HTTP_HEADER_ENCODING)
-        print("onepanel-auth-token",onepanel_header,end="\n")
+            auth_header = auth_header.encode(HTTP_HEADER_ENCODING)
+            AuthToken.validate_token(auth_header.decode(), api_url)
 
 
 
