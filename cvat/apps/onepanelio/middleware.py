@@ -4,10 +4,25 @@ from django.contrib.auth.middleware import MiddlewareMixin
 from django.http import HttpResponseForbidden, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.contrib.auth import get_user_model
+from rest_framework.authentication import BaseAuthentication
+from rest_framework import HTTP_HEADER_ENCODING, exceptions
+from django.utils.six import text_type
 
 from cvat.apps.onepanelio.models import AuthToken
 
 UserModel = get_user_model()
+
+
+class OnepanelCoreTokenAuthentication(BaseAuthentication):
+
+    def authenticate(self, request):
+        # Djago automatically upper-cases headers, converts "-" to "_", adds HTTP
+        onepanel_header = request.META.get('HTTP_ONEPANEL_AUTH_TOKEN', b'')
+        if isinstance(onepanel_header, text_type):
+            # Work around django test client oddness
+            onepanel_header = onepanel_header.encode(HTTP_HEADER_ENCODING)
+        print("onepanel-auth-token",onepanel_header,end="\n")
+
 
 
 class AutomaticUserLoginMiddleware(MiddlewareMixin):
