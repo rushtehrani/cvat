@@ -589,29 +589,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         null
                                 }
                             </Col>
-                        </Row> : null :                         <Row type='flex' align='middle'>
-                            <Col span={24}>
-                                <label className='cvat-text-color ant-form-item-label'><Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col></label>
-                                <TextArea
-                                    autoSize={{ minRows: 1, maxRows: 4 }}
-                                    value={this.state.allSysFinetuneCheckpoint.value || ""}
-                                    onChange={(event) => this.setState({
-                                        allSysFinetuneCheckpoint: {
-                                            ...this.state.allSysFinetuneCheckpoint,
-                                            value: event.target.value
-                                        }
-                                    })}
-                                />
-                                {
-                                    this.state.allSysFinetuneCheckpoint.hint ?
-                                        <div
-                                            style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
-                                            dangerouslySetInnerHTML={{__html: this.state.allSysFinetuneCheckpoint.hint}}
-                                        ></div> :
-                                        null
-                                }
-                            </Col>
-                        </Row>
+                        </Row> : null : null
                 }
 
                 {
