@@ -1,3 +1,5 @@
+import os
+
 from allauth.account.views import login
 from django.contrib import auth
 from django.contrib.auth.middleware import MiddlewareMixin
@@ -7,6 +9,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.authentication import BaseAuthentication
 from rest_framework import HTTP_HEADER_ENCODING, exceptions
 from django.utils.six import text_type
+from django.utils.translation import ugettext_lazy as _
 
 from cvat.apps.onepanelio.models import AuthToken
 
@@ -16,6 +19,12 @@ UserModel = get_user_model()
 class OnepanelCoreTokenAuthentication(BaseAuthentication):
 
     def authenticate(self, request):
+        # ONEPANEL_API_URL = https: // app.alex.onepanel.io / api
+        api_url = os.getenv("ONEPANEL_API_URL", "")
+        if not api_url:
+            msg = _('ONEPANEL_API_URL cannot be empty.')
+            raise exceptions.AuthenticationFailed(msg)
+
         # Djago automatically upper-cases headers, converts "-" to "_", adds HTTP
         onepanel_header = request.META.get('HTTP_ONEPANEL_AUTH_TOKEN', b'')
         if isinstance(onepanel_header, text_type):
