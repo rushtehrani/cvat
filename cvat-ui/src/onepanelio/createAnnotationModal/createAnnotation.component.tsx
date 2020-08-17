@@ -764,7 +764,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 this.setState(InitialState);
                 closeDialog();
             }}>
-                Cancel
+                Close
             </Button>,
             <Button key="submit" type="primary" disabled={checkSubmitEnable()} onClick={(): void => {
                 this.handleSubmit();
