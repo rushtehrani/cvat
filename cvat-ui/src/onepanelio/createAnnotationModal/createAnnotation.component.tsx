@@ -253,7 +253,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         if (sysAnnotationPath) {
             finalPayload.parameters["sys-annotation-path"] = sysAnnotationPath.value;
         }
-        if(selectedFinetuneCheckpoint || allSysFinetuneCheckpoint.value) {
+        if( (selectedFinetuneCheckpoint || allSysFinetuneCheckpoint.value) && selectedFinetuneCheckpoint !== "none") {
             finalPayload.parameters["sys-finetune-checkpoint"] = selectedFinetuneCheckpoint ? selectedFinetuneCheckpoint : allSysFinetuneCheckpoint.value;
         }
 
@@ -580,6 +580,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         })
                                     }}
                                 >
+                                    <Select.Option key={'default'} value={'none'}>&nbsp;</Select.Option>
                                     {
                                         this.state.allSysFinetuneCheckpoint.options.map((checkpoint: string) =>
                                             <Select.Option key={checkpoint} value={checkpoint}>
