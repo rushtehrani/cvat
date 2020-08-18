@@ -24,10 +24,13 @@ export const OnepanelApi = {
         });
     },
 
-    async getBaseModel(workflowTemplateUid: string) {
+    async getBaseModel(workflowTemplateUid: string, sysRefModel: string = "") {
         return await core.server.request(`${baseUrl}/onepanelio/get_base_model`, {
             method: 'POST',
-            data: { uid: workflowTemplateUid },
+            data: {
+                uid: workflowTemplateUid,
+                sysRefModel: sysRefModel,
+            },
             headers: {
                 'Content-Type': 'application/json',
             },

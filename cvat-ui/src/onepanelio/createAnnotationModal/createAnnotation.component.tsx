@@ -131,6 +131,73 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         }
     }
 
+    /**
+     * This is called whenever a Select workflow parameter is changed.
+     *
+     * @param workflowParams
+     * @param value
+     */
+    async onWorkflowParamSelectChange(workflowParams: any, value: string) {
+        this.setState({
+            selectedWorkflowParam: {
+                ...this.state.selectedWorkflowParam,
+                [workflowParams.name]: value
+            }
+        })
+
+        if(workflowParams.name === 'sys-model') {
+            await this.onSysRefModelUpdated(workflowParams, value);
+        }
+    }
+
+    /**
+     * This is called whenever we want to update the sysRefModel
+     * @param workflowParam
+     * @param value
+     */
+    async onSysRefModelUpdated(workflowParam: any, value: string) {
+        if(!this.state.workflowTemplate) {
+            return;
+        }
+
+        const sysFinetuneCheckpoint = this.state.allWorkflowParameters.find((param: WorkflowParameters) => param.name === "sys-finetune-checkpoint");
+        const workflowTemplateUid = this.state.workflowTemplate.uid;
+        if(sysFinetuneCheckpoint && workflowTemplateUid) {
+            await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, workflowTemplateUid, value);
+        }
+    }
+
+    /**
+     * Loads base model data from the API and updates the allSysFinetuneCheckpoint options.
+     * If nothing is passed in, the default/initial values are set.
+     *
+     * @param sysFinetuneCheckpoint
+     * @param workflowTemplateUid
+     * @param sysRefModel
+     * @private
+     */
+    private async updateSysFinetuneCheckpoint(sysFinetuneCheckpoint: any, workflowTemplateUid: string, sysRefModel?: string) {
+        let { keys } = await OnepanelApi.getBaseModel(workflowTemplateUid, sysRefModel);
+
+        if (keys.length > 0){
+            this.setState({
+                allSysFinetuneCheckpoint: {
+                    options: keys,
+                    hint: sysFinetuneCheckpoint.hint,
+                    display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+                },
+            });
+        } else {
+            this.setState({
+                allSysFinetuneCheckpoint: {
+                    value: "",
+                    hint: sysFinetuneCheckpoint.hint,
+                    display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+                },
+            });
+        }
+    }
+
     private showErrorNotification = (error: any): void => {
         notification.error({
             message: 'Execute Workflow failed.',
@@ -339,30 +406,12 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 });
             }
 
-            if (sysFinetuneCheckpoint) {
-                let { keys } = await OnepanelApi.getBaseModel(data.uid);
-
-                if (keys.length > 0){
-                    this.setState({
-                        allSysFinetuneCheckpoint: {
-                            options: keys,
-                            hint: sysFinetuneCheckpoint.hint,
-                            display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
-                        },
-                    });
-                } else {
-                    this.setState({
-                        allSysFinetuneCheckpoint: {
-                            value: "",
-                            hint: sysFinetuneCheckpoint.hint,
-                            display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
-                        },
-                    });
-                }
+            if(sysFinetuneCheckpoint) {
+                await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, data.uid);
             } else {
                 this.setState({
                     allSysFinetuneCheckpoint: InitialState.allSysFinetuneCheckpoint
-                })
+                });
             }
 
             if (sysOutputPath) {
@@ -484,12 +533,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                                 defaultValue={
                                                     this.state.selectedWorkflowParam[workflowParams.name]
                                                 }
-                                                onChange={(value: any) => this.setState({
-                                                    selectedWorkflowParam: {
-                                                        ...this.state.selectedWorkflowParam,
-                                                        [workflowParams.name]: value
-                                                    }
-                                                })}
+                                                onChange={this.onWorkflowParamSelectChange.bind(this, workflowParams)}
                                             >
                                                 {
                                                     workflowParams.options.map((param: any) =>
