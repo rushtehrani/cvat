@@ -104,7 +104,7 @@ const InitialState = {
         value: ""
     },
     allSysFinetuneCheckpoint: {
-        options: [],
+        options: null,
         hint: null,
         display_name: ""
     },
@@ -145,7 +145,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             }
         })
 
-        if(workflowParams.name === 'sys-model') {
+        if(workflowParams.name === 'cvat-model') {
             await this.onSysRefModelUpdated(workflowParams, value);
         }
     }
@@ -160,7 +160,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             return;
         }
 
-        const sysFinetuneCheckpoint = this.state.allWorkflowParameters.find((param: WorkflowParameters) => param.name === "sys-finetune-checkpoint");
+        const sysFinetuneCheckpoint = this.state.allWorkflowParameters.find((param: WorkflowParameters) => param.name === "cvat-finetune-checkpoint");
         const workflowTemplateUid = this.state.workflowTemplate.uid;
         if(sysFinetuneCheckpoint && workflowTemplateUid) {
             await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, workflowTemplateUid, value);
@@ -179,23 +179,13 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
     private async updateSysFinetuneCheckpoint(sysFinetuneCheckpoint: any, workflowTemplateUid: string, sysRefModel?: string) {
         let { keys } = await OnepanelApi.getBaseModel(workflowTemplateUid, sysRefModel);
 
-        if (keys.length > 0){
-            this.setState({
-                allSysFinetuneCheckpoint: {
-                    options: keys,
-                    hint: sysFinetuneCheckpoint.hint,
-                    display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
-                },
-            });
-        } else {
-            this.setState({
-                allSysFinetuneCheckpoint: {
-                    value: "",
-                    hint: sysFinetuneCheckpoint.hint,
-                    display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
-                },
-            });
-        }
+        this.setState({
+            allSysFinetuneCheckpoint: {
+                options: keys,
+                hint: sysFinetuneCheckpoint.hint,
+                display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+            },
+        });
     }
 
     private showErrorNotification = (error: any): void => {
@@ -315,13 +305,13 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             finalPayload.parameters["sys-node-pool"] = selectedNodePool.value;
         }
         if (sysOutputPath) {
-            finalPayload.parameters["sys-output-path"] = sysOutputPath.value;
+            finalPayload.parameters["cvat-output-path"] = sysOutputPath.value;
         }
         if (sysAnnotationPath) {
-            finalPayload.parameters["sys-annotation-path"] = sysAnnotationPath.value;
+            finalPayload.parameters["cvat-annotation-path"] = sysAnnotationPath.value;
         }
         if( (selectedFinetuneCheckpoint || allSysFinetuneCheckpoint.value) && selectedFinetuneCheckpoint !== "none") {
-            finalPayload.parameters["sys-finetune-checkpoint"] = selectedFinetuneCheckpoint ? selectedFinetuneCheckpoint : allSysFinetuneCheckpoint.value;
+            finalPayload.parameters["cvat-finetune-checkpoint"] = selectedFinetuneCheckpoint ? selectedFinetuneCheckpoint : allSysFinetuneCheckpoint.value;
         }
 
         try {
@@ -382,9 +372,9 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 
             let workflowParamsArr = parameters, workflowParamNameValue = {};
             const sysNodePoolParam = parameters.find((param: WorkflowParameters) => param.name === "sys-node-pool");
-            const sysFinetuneCheckpoint = parameters.find((param: WorkflowParameters) => param.name === "sys-finetune-checkpoint");
-            const sysOutputPath = parameters.find((param: WorkflowParameters) => param.name === "sys-output-path");
-            const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === "sys-annotation-path");
+            const sysFinetuneCheckpoint = parameters.find((param: WorkflowParameters) => param.name === "cvat-finetune-checkpoint");
+            const sysOutputPath = parameters.find((param: WorkflowParameters) => param.name === "cvat-output-path");
+            const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === "cvat-annotation-path");
 
             if (sysNodePoolParam) {
                 let { node_pool } = await OnepanelApi.getNodePool();
@@ -410,7 +400,11 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, data.uid);
             } else {
                 this.setState({
-                    allSysFinetuneCheckpoint: InitialState.allSysFinetuneCheckpoint
+                    allSysFinetuneCheckpoint: {
+                        options: null,
+                        hint: null,
+                        display_name: ""
+                    }
                 });
             }
 
@@ -445,8 +439,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             }
 
             workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
-                if (param.name !== "sys-node-pool" && param.name !== "sys-output-path" &&
-                    param.name !== "sys-annotation-path" && param.name !== "sys-finetune-checkpoint" &&
+                if (param.name !== "sys-node-pool" && param.name !== "cvat-output-path" &&
+                    param.name !== "cvat-annotation-path" && param.name !== "cvat-finetune-checkpoint" &&
                     param.name !== "dump-format") {
                     workflowParamNameValue = {
                         ...workflowParamNameValue,
@@ -611,7 +605,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 }
 
                 {
-                    this.state.allSysFinetuneCheckpoint.options ? this.state.allSysFinetuneCheckpoint.options.length ?
+                    this.state.allSysFinetuneCheckpoint.options !== null ?
                         <Row type='flex' align='middle'>
                             <Col span={24}>
                                 <label className='cvat-text-color ant-form-item-label'>{this.state.allSysFinetuneCheckpoint.display_name}:</label>
@@ -642,7 +636,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         null
                                 }
                             </Col>
-                        </Row> : null : null
+                        </Row> : null
                 }
 
                 {
