@@ -145,7 +145,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             }
         })
 
-        if(workflowParams.name === 'sys-ref-model') {
+        if(workflowParams.name === 'sys-model') {
             await this.onSysRefModelUpdated(workflowParams, value);
         }
     }
