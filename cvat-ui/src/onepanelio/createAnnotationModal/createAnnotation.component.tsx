@@ -380,6 +380,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             const sysNodePoolParam = parameters.find((param: WorkflowParameters) => param.name === "sys-node-pool");
             const sysFinetuneCheckpoint = parameters.find((param: WorkflowParameters) => param.name === "cvat-finetune-checkpoint");
             const sysOutputPath = parameters.find((param: WorkflowParameters) => param.name === "cvat-output-path");
+            const cvatModel = parameters.find((param: WorkflowParameters) => param.name === "cvat-model");
             const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === "cvat-annotation-path");
 
             if (sysNodePoolParam) {
@@ -403,7 +404,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             }
 
             if(sysFinetuneCheckpoint) {
-                await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, data.uid);
+                await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, data.uid, cvatModel.value);
             } else {
                 this.setState({
                     allSysFinetuneCheckpoint: {
