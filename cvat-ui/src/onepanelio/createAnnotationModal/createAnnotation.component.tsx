@@ -54,6 +54,7 @@ interface State {
     selectedFinetuneCheckpoint: string | null;
     showDumpFormatHint: boolean;
     submitEnabled: boolean;
+    updatingModel: boolean;
 }
 
 interface CreateAnnotationSubmitData {
@@ -110,7 +111,8 @@ const InitialState = {
     },
     selectedFinetuneCheckpoint: null,
     showDumpFormatHint: false,
-    submitEnabled: true
+    submitEnabled: true,
+    updatingModel: false,
 
 }
 
@@ -160,7 +162,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             return;
         }
 
-        const sysFinetuneCheckpoint = this.state.allWorkflowParameters.find((param: WorkflowParameters) => param.name === "cvat-finetune-checkpoint");
+        const sysFinetuneCheckpoint = this.state.allSysFinetuneCheckpoint;
         const workflowTemplateUid = this.state.workflowTemplate.uid;
         if(sysFinetuneCheckpoint && workflowTemplateUid) {
             await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, workflowTemplateUid, value);
@@ -177,6 +179,9 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
      * @private
      */
     private async updateSysFinetuneCheckpoint(sysFinetuneCheckpoint: any, workflowTemplateUid: string, sysRefModel?: string) {
+        this.setState({
+            updatingModel: true,
+        })
         let { keys } = await OnepanelApi.getBaseModel(workflowTemplateUid, sysRefModel);
 
         this.setState({
@@ -185,6 +190,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 hint: sysFinetuneCheckpoint.hint,
                 display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
             },
+            updatingModel: false
         });
     }
 
@@ -761,6 +767,13 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 <span key={"paramMessage"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
                     <Spin /> &nbsp; &nbsp;
                     {`Getting workflow parameters...`}
+                </span>
+            )
+        } else if(this.state.updatingModel) {
+            footerElements.push(
+                <span key={"paramMessage"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
+                    <Spin /> &nbsp; &nbsp;
+                    {`Updating checkpoints...`}
                 </span>
             )
         }
