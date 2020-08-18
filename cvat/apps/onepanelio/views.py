@@ -173,7 +173,10 @@ def get_model_keys(request):
         # bucket_name = authenticate_cloud_storage()
         checkpoints = [i[0] for i in os.walk('/home/django/share/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')) if form_data['uid']+'/' in i[0]]
         checkpoint_paths = [os.path.join(*[os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')]+c.split("/")[-4:]) for c in checkpoints]
-        checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 5 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output'))] 
+        if form_data['sysRefModel']:
+            checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 5 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output'))] 
+        else:
+            checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 5 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')) and form_data['sysRefModel'] in c] 
         return Response({'keys':checkpoint_path_filtered})
     except:
         return Response({'keys':[]})
@@ -261,11 +264,14 @@ def create_annotation_model(request, pk):
     # cloud_prefix = os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+ '/annotation-dump/'
 
     # dump training data on cloud
-    # if 'sys-annotation-path' in form_data['parameters']:
+    # if 'cvat-annotation-path' in form_data['parameters']:
     annotation_path = 'annotation-dump' + '/' + db_task.name + '/' + stamp + '/'
-    output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + stamp + '/'
-    
-    if 'sys-annotation-path' in all_parameter_names:
+    if 'cvat-model' in all_parameter_names:
+        output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + form_data['parameters']['cvat-model'] + '/'
+    else:
+        output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/'
+        
+    if 'cvat-annotation-path' in all_parameter_names:
         dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
    
     time = datetime.now()
@@ -280,21 +286,21 @@ def create_annotation_model(request, pk):
         namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') # str | 
         params = []
         for p_name, p_value in form_data['parameters'].items():
-            if p_name in ['sys-annotation-path','sys-output-path']:
+            if p_name in ['cvat-annotation-path','cvat-output-path']:
                 continue
             params.append(Parameter(name=p_name, value=p_value))
         
-        if 'sys-annotation-path' in all_parameter_names:
-            params.append(Parameter(name='sys-annotation-path', value=annotation_path))
-        if 'sys-output-path' in all_parameter_names:
-            params.append(Parameter(name='sys-output-path', value=output_path))
+        if 'cvat-annotation-path' in all_parameter_names:
+            params.append(Parameter(name='cvat-annotation-path', value=annotation_path))
+        if 'cvat-output-path' in all_parameter_names:
+            params.append(Parameter(name='cvat-output-path', value=output_path))
         if 'dump-format' in all_parameter_names:
             params.append(Parameter(name='dump-format', value=form_data['dump_format']))
-        if 'sys-num-classes' in all_parameter_names:
+        if 'cvat-num-classes' in all_parameter_names:
             if form_data['workflow_template'] == 'maskrcnn-training':
-                params.append(Parameter(name='sys-num-classes', value=str(num_classes+1)))
+                params.append(Parameter(name='cvat-num-classes', value=str(num_classes+1)))
             else:
-                params.append(Parameter(name='sys-num-classes', value=str(num_classes)))
+                params.append(Parameter(name='cvat-num-classes', value=str(num_classes)))
         
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
         workflow_template_uid = form_data['workflow_template']) 
