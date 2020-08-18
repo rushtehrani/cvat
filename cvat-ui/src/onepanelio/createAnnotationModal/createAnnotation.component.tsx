@@ -24,6 +24,7 @@ import {
     WorkflowTemplates, WorkflowParameters, NodePoolParameters,
     DumpFormats, NodePoolResponse, ExecuteWorkflowPayload, DefaultSysParams
 } from './interfaces';
+import { OnepanelApi } from "../api/onepanelApi";
 
 interface Props {
     visible: boolean;
@@ -38,7 +39,7 @@ interface Props {
 interface State {
     isLoading: boolean,
     executingAnnotation: boolean;
-    getingParameters: boolean;
+    gettingParameters: boolean;
     workflowTemplate: WorkflowTemplates | undefined;
     allWorkflowParameters: WorkflowParameters[];
     selectedWorkflowParam: any;
@@ -52,6 +53,7 @@ interface State {
     allSysFinetuneCheckpoint: DefaultSysParams;
     selectedFinetuneCheckpoint: string | null;
     showDumpFormatHint: boolean;
+    submitEnabled: boolean;
 }
 
 interface CreateAnnotationSubmitData {
@@ -73,8 +75,9 @@ const machines = getMachineNames();
 const InitialState = {
     isLoading: true,
     executingAnnotation: false,
-    getingParameters: false,
+    gettingParameters: false,
     workflowTemplate: {
+        name: "",
         uid: "",
         version: ""
     },
@@ -107,6 +110,8 @@ const InitialState = {
     },
     selectedFinetuneCheckpoint: null,
     showDumpFormatHint: false,
+    submitEnabled: true
+
 }
 
 export default class ModelNewAnnotationModalComponent extends React.PureComponent<Props, State> {
@@ -140,18 +145,10 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             closeDialog
         } = this.props;
 
-        const baseUrl: string = core.config.backendAPI.slice(0, -7);
-
-        let countResp = await core.server.request(`${baseUrl}/onepanelio/get_object_counts/${taskInstance.id}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
         const {
             shapes,
             tracks,
-        } = countResp;
+        } = await OnepanelApi.getObjectCounts(taskInstance.id);
 
         if (tracks.length) {
             return this.onExecuteWorkflow();
@@ -256,29 +253,45 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         if (sysAnnotationPath) {
             finalPayload.parameters["sys-annotation-path"] = sysAnnotationPath.value;
         }
-        if(selectedFinetuneCheckpoint || allSysFinetuneCheckpoint.value) {
+        if( (selectedFinetuneCheckpoint || allSysFinetuneCheckpoint.value) && selectedFinetuneCheckpoint !== "none") {
             finalPayload.parameters["sys-finetune-checkpoint"] = selectedFinetuneCheckpoint ? selectedFinetuneCheckpoint : allSysFinetuneCheckpoint.value;
         }
 
-        const baseUrl: string = core.config.backendAPI.slice(0, -7);
-        let successResp = await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
-            method: 'POST',
-            data: finalPayload,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
+        try {
+            const baseUrl: string = core.config.backendAPI.slice(0, -7);
+            let successResp = await core.server.request(`${baseUrl}/onepanelio/execute_workflow/${taskInstance.id}`, {
+                method: 'POST',
+                data: finalPayload,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
 
-        notification.open({
-            message: 'Execute Workflow',
-            duration: 0,
-            description: this.ExecuteSuccessMessage(workflowTemplate!.uid, successResp.url)
-        });
+            notification.open({
+                message: 'Execute Workflow',
+                duration: 0,
+                description: this.ExecuteSuccessMessage(workflowTemplate!.uid, successResp.url)
+            });
 
-        closeDialog();
+            closeDialog();
+        } catch (e) {
+            this.setState({
+                executingAnnotation: false,
+                submitEnabled: true
+            });
+
+            notification.error({
+                message: 'Error',
+                duration: 0,
+                description: 'There was an error executing the workflow'
+            });
+        }
     }
 
     private onWorkflowTemplateChange = async (value: string) => {
+        if (!value) {
+            return;
+        }
 
         const {
             taskInstance,
@@ -286,170 +299,152 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         } = this.props;
 
         const data = workflowTemplates.find(workflow => workflow.uid === value)
+
+        // WorkflowTemplate not found by input value
+        if(!data) {
+            return;
+        }
+
         this.setState({
             workflowTemplate: data,
-            getingParameters: true,
+            gettingParameters: true,
         })
-        if (value) {
-            const baseUrl: string = core.config.backendAPI.slice(0, -7);
-            try {
-                const response = await core.server.request(`${baseUrl}/onepanelio/get_workflow_parameters`, {
-                    method: 'POST',
-                    data,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                });
 
-                const { parameters } = response;
-                let workflowParamsArr = parameters, workflowParamNameValue = {};
-                const sysNodePoolParam = parameters.find((param: WorkflowParameters) => param.name === "sys-node-pool");
-                const sysFinetuneCheckpoint = parameters.find((param: WorkflowParameters) => param.name === "sys-finetune-checkpoint");
-                const sysOutputPath = parameters.find((param: WorkflowParameters) => param.name === "sys-output-path");
-                const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === "sys-annotation-path");
+        try {
+            const { parameters } = await OnepanelApi.getWorkflowParameters(data);
 
-                try {
-                    if (sysNodePoolParam) {
-                        const nodePoolResp = await core.server.request(`${baseUrl}/onepanelio/get_node_pool`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                        });
-                        let { node_pool } = nodePoolResp;
-                        this.setState({
-                            allSysNodePools: {
-                                ...node_pool,
-                                hint: sysNodePoolParam.hint,
-                                display_name: sysNodePoolParam.display_name ? sysNodePoolParam.display_name : sysNodePoolParam.name
-                            },
-                            defaultSysNodePoolVal: sysNodePoolParam.value,
-                            selectedNodePool: node_pool.options.find((node: NodePoolParameters) => node.value === sysNodePoolParam.value)
-                        });
-                    }
+            let workflowParamsArr = parameters, workflowParamNameValue = {};
+            const sysNodePoolParam = parameters.find((param: WorkflowParameters) => param.name === "sys-node-pool");
+            const sysFinetuneCheckpoint = parameters.find((param: WorkflowParameters) => param.name === "sys-finetune-checkpoint");
+            const sysOutputPath = parameters.find((param: WorkflowParameters) => param.name === "sys-output-path");
+            const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === "sys-annotation-path");
 
-                if (sysFinetuneCheckpoint) {
-                    const specificModelsResp = await core.server.request(`${baseUrl}/onepanelio/get_base_model`, {
-                        method: 'POST',
-                        data: { uid: data!.uid },
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                    });
-                    let { keys } = specificModelsResp;
-                    if (keys.length > 0){
-                        this.setState({
-                            allSysFinetuneCheckpoint: {
-                                options: keys,
-                                hint: sysFinetuneCheckpoint.hint,
-                                display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
-                            },
-                        });
-                    }
-                    else{
-                        this.setState({
-                            allSysFinetuneCheckpoint: {
-                                value: "",
-                                hint: sysFinetuneCheckpoint.hint,
-                                display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
-                            },
-                        });
-                    }
-                }
-
-                    if (sysOutputPath) {
-                        const sysOutputPathResp = await core.server.request(`${baseUrl}/onepanelio/get_output_path/${taskInstance.id}`, {
-                            method: 'POST',
-                            data: { uid: data!.uid },
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                        });
-                        this.setState({
-                            sysOutputPath: {
-                                display_name: sysOutputPath.display_name ? sysOutputPath.display_name : sysOutputPath.name,
-                                hint: sysOutputPath.hint,
-                                value: sysOutputPathResp.name
-                            }
-                        });
-                    }
-
-                    if (sysAnnotationPath) {
-                        const sysAnnotationPathResp = await core.server.request(`${baseUrl}/onepanelio/get_annotation_path/${taskInstance.id}`, {
-                            method: 'POST',
-                            data: { uid: data!.uid },
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                        });
-                        this.setState({
-                            sysAnnotationPath: {
-                                display_name: sysAnnotationPath.display_name ? sysAnnotationPath.display_name : sysAnnotationPath.name,
-                                hint: sysAnnotationPath.hint,
-                                value: sysAnnotationPathResp.name
-                            }
-                        });
-                    }
-                } catch (e) {
-                    throw new Error();
-                }
-
-                workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
-                    if (param.name !== "sys-node-pool" && param.name !== "sys-output-path" &&
-                        param.name !== "sys-annotation-path" && param.name !== "sys-finetune-checkpoint" && param.name !== "dump-format") {
-                        workflowParamNameValue = {
-                            ...workflowParamNameValue,
-                            [param.name]: param.value
-                        }
-                        return true;
-                    }
-                    return false;
-                })
-
-                const { dump_formats } = await core.server.request(`${baseUrl}/onepanelio/get_available_dump_formats`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                });
-                const dumpFormat = parameters.find((param: WorkflowParameters) => param.name === "dump-format");
-                if (!dumpFormat || !dumpFormat.value) {
-                    this.setState({
-                        allDumpFormats: dump_formats,
-                    });
-                } else {
-                    let dumpFormatInParams = dump_formats.find((dump: DumpFormats) => dump.tag === dumpFormat.value);
-                    if (dumpFormatInParams) {
-                        this.setState({
-                            selectedDumpFormat: dumpFormatInParams
-                        })
-                    } else {
-                        this.setState({
-                            allDumpFormats: dump_formats,
-                            showDumpFormatHint: true,
-                        })
-                    }
-                }
-
+            if (sysNodePoolParam) {
+                let { node_pool } = await OnepanelApi.getNodePool();
 
                 this.setState({
-                    getingParameters: false,
-                    allWorkflowParameters: workflowParamsArr,
-                    selectedWorkflowParam: { ...workflowParamNameValue }
+                    allSysNodePools: {
+                        ...node_pool,
+                        hint: sysNodePoolParam.hint,
+                        display_name: sysNodePoolParam.display_name ? sysNodePoolParam.display_name : sysNodePoolParam.name
+                    },
+                    defaultSysNodePoolVal: sysNodePoolParam.value,
+                    selectedNodePool: node_pool.options.find((node: NodePoolParameters) => node.value === sysNodePoolParam.value)
                 });
-            } catch (error) {
-                // this.showErrorNotification(error);
+            } else {
                 this.setState({
-                    isLoading: false,
-                    executingAnnotation: false,
-                    getingParameters: false,
+                    allSysNodePools: InitialState.allSysNodePools,
+                    defaultSysNodePoolVal: InitialState.defaultSysNodePoolVal,
+                    selectedNodePool: InitialState.selectedNodePool
                 });
             }
+
+            if (sysFinetuneCheckpoint) {
+                let { keys } = await OnepanelApi.getBaseModel(data.uid);
+
+                if (keys.length > 0){
+                    this.setState({
+                        allSysFinetuneCheckpoint: {
+                            options: keys,
+                            hint: sysFinetuneCheckpoint.hint,
+                            display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+                        },
+                    });
+                } else {
+                    this.setState({
+                        allSysFinetuneCheckpoint: {
+                            value: "",
+                            hint: sysFinetuneCheckpoint.hint,
+                            display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name
+                        },
+                    });
+                }
+            } else {
+                this.setState({
+                    allSysFinetuneCheckpoint: InitialState.allSysFinetuneCheckpoint
+                })
+            }
+
+            if (sysOutputPath) {
+                const sysOutputPathResp = await OnepanelApi.getOutputPath(taskInstance.id, data.uid)
+                this.setState({
+                    sysOutputPath: {
+                        display_name: sysOutputPath.display_name ? sysOutputPath.display_name : sysOutputPath.name,
+                        hint: sysOutputPath.hint,
+                        value: sysOutputPathResp.name
+                    }
+                });
+            } else {
+                this.setState({
+                    sysOutputPath: InitialState.sysOutputPath
+                })
+            }
+
+            if (sysAnnotationPath) {
+                const sysAnnotationPathResp = await OnepanelApi.getAnnotationPath(taskInstance.id, data.uid);
+                this.setState({
+                    sysAnnotationPath: {
+                        display_name: sysAnnotationPath.display_name ? sysAnnotationPath.display_name : sysAnnotationPath.name,
+                        hint: sysAnnotationPath.hint,
+                        value: sysAnnotationPathResp.name
+                    }
+                });
+            } else {
+                this.setState({
+                    sysAnnotationPath: InitialState.sysAnnotationPath
+                })
+            }
+
+            workflowParamsArr = parameters.filter((param: WorkflowParameters) => {
+                if (param.name !== "sys-node-pool" && param.name !== "sys-output-path" &&
+                    param.name !== "sys-annotation-path" && param.name !== "sys-finetune-checkpoint" &&
+                    param.name !== "dump-format") {
+                    workflowParamNameValue = {
+                        ...workflowParamNameValue,
+                        [param.name]: param.value
+                    }
+                    return true;
+                }
+                return false;
+            })
+
+            const { dump_formats } = await OnepanelApi.getAvailableDumpFormats();
+
+            const dumpFormat = parameters.find((param: WorkflowParameters) => param.name === "dump-format");
+            if (!dumpFormat || !dumpFormat.value) {
+                this.setState({
+                    allDumpFormats: dump_formats,
+                });
+            } else {
+                let dumpFormatInParams = dump_formats.find((dump: DumpFormats) => dump.tag === dumpFormat.value);
+                if (dumpFormatInParams) {
+                    this.setState({
+                        selectedDumpFormat: dumpFormatInParams
+                    })
+                } else {
+                    this.setState({
+                        allDumpFormats: dump_formats,
+                        showDumpFormatHint: true,
+                    })
+                }
+            }
+
+            this.setState({
+                gettingParameters: false,
+                allWorkflowParameters: workflowParamsArr,
+                selectedWorkflowParam: { ...workflowParamNameValue }
+            });
+        } catch (error) {
+            // this.showErrorNotification(error);
+            this.setState({
+                isLoading: false,
+                executingAnnotation: false,
+                gettingParameters: false,
+            });
         }
     }
 
     private renderModelSelector(): JSX.Element {
-
         const {
             workflowTemplates,
         } = this.props
@@ -585,6 +580,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         })
                                     }}
                                 >
+                                    <Select.Option key={'default'} value={'none'}>&nbsp;</Select.Option>
                                     {
                                         this.state.allSysFinetuneCheckpoint.options.map((checkpoint: string) =>
                                             <Select.Option key={checkpoint} value={checkpoint}>
@@ -602,29 +598,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                                         null
                                 }
                             </Col>
-                        </Row> : null :                         <Row type='flex' align='middle'>
-                            <Col span={24}>
-                                <label className='cvat-text-color ant-form-item-label'><Col span={6}>{this.state.allSysFinetuneCheckpoint.display_name}:</Col></label>
-                                <TextArea
-                                    autoSize={{ minRows: 1, maxRows: 4 }}
-                                    value={this.state.allSysFinetuneCheckpoint.value || ""}
-                                    onChange={(event) => this.setState({
-                                        allSysFinetuneCheckpoint: {
-                                            ...this.state.allSysFinetuneCheckpoint,
-                                            value: event.target.value
-                                        }
-                                    })}
-                                />
-                                {
-                                    this.state.allSysFinetuneCheckpoint.hint ?
-                                        <div
-                                            style={{ fontSize: "12px", marginLeft: "10px", color: "#716f6f" }}
-                                            dangerouslySetInnerHTML={{__html: this.state.allSysFinetuneCheckpoint.hint}}
-                                        ></div> :
-                                        null
-                                }
-                            </Col>
-                        </Row>
+                        </Row> : null : null
                 }
 
                 {
@@ -744,7 +718,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             )
         }
 
-        if (this.state.getingParameters) {
+        if (this.state.gettingParameters) {
             footerElements.push(
                 <span key={"paramMessage"} style={{ float: 'left', paddingTop: '5px', color: '#1890ff', }}>
                     <Spin /> &nbsp; &nbsp;
@@ -763,6 +737,11 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         }
 
         const checkSubmitEnable = () => {
+            // If we are executing, don't allow them to submit it again.
+            if(this.state.executingAnnotation) {
+                return false;
+            }
+
             if (this.state.workflowTemplate!.uid && this.state.selectedDumpFormat) {
                 if ((this.state.allSysNodePools.options.length && this.state.selectedNodePool) || !this.state.allSysNodePools.options.length) {
                     return false;
@@ -777,10 +756,16 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 this.setState(InitialState);
                 closeDialog();
             }}>
-                Cancel
+                Close
             </Button>,
-            <Button key="submit" type="primary" disabled={checkSubmitEnable()} onClick={(): void => {
+            <Button key="submit" type="primary" disabled={!this.state.submitEnabled} onClick={(): void => {
+                this.setState({
+                    submitEnabled: checkSubmitEnable()
+                })
                 this.handleSubmit();
+                this.setState({
+                    submitEnabled: checkSubmitEnable()
+                })
             }}>
                 Submit
             </Button>,
