@@ -404,7 +404,8 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             }
 
             if(sysFinetuneCheckpoint) {
-                await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, data.uid, cvatModel.value);
+                const sysRefModel = cvatModel ? cvatModel.value : "";
+                await this.updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, data.uid, sysRefModel);
             } else {
                 this.setState({
                     allSysFinetuneCheckpoint: {
@@ -485,7 +486,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 selectedWorkflowParam: { ...workflowParamNameValue }
             });
         } catch (error) {
-            // this.showErrorNotification(error);
+            this.showErrorNotification(error);
             this.setState({
                 isLoading: false,
                 executingAnnotation: false,
