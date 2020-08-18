@@ -6,7 +6,6 @@ from pprint import pprint
 from django.contrib.auth.models import User
 import onepanel.core.api
 from onepanel.core.api.rest import ApiException
-from onepanel.core.api.models import Parameter
 
 class AuthToken:
     @staticmethod
@@ -14,7 +13,9 @@ class AuthToken:
         return request.COOKIES['auth-token']
 
     @staticmethod
-    def validate_token(token: str, onepanel_api_url: str) -> bool:
+    def validate_token(token: str, username: str, onepanel_api_url: str) -> bool:
+        if username != 'admin':
+            return False
         # Defining the host is optional and defaults to http://localhost:8888
         # See configuration.py for a list of all supported configuration parameters.
         configuration = onepanel.core.api.Configuration(
