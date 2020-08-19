@@ -37,9 +37,9 @@ class AuthToken:
 
 class AdminUser:
     @staticmethod
-    def create_admin_user(request):
-        auth_token = AuthToken.get_auth_token(request)
-        username = "admin"
+    def create_admin_user(request, username="admin", auth_token=None):
+        if auth_token is None:
+            auth_token = AuthToken.get_auth_token(request)
         if not User.objects.filter(username=username).exists():
             u = User(username=username)
             u.set_password(auth_token)
