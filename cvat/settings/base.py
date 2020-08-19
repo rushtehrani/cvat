@@ -126,6 +126,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'cvat.apps.onepanelio.middleware.OnepanelCoreTokenAuthentication',
         'cvat.apps.authentication.auth.TokenAuthentication',
         'cvat.apps.authentication.auth.SignatureAuthentication',
         'rest_framework.authentication.SessionAuthentication',
@@ -230,6 +231,7 @@ LOGIN_REDIRECT_URL = '/'
 AUTH_LOGIN_NOTE = '<p>Have not registered yet? <a href="/auth/register">Register here</a>.</p>'
 
 AUTHENTICATION_BACKENDS = [
+    'cvat.apps.onepanelio.backends.OnepanelIORestBackend',
     'cvat.apps.onepanelio.backends.OnepanelIOBackend',
     'rules.permissions.ObjectPermissionBackend',
     'django.contrib.auth.backends.ModelBackend'
