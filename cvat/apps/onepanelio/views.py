@@ -25,8 +25,8 @@ from rest_framework.decorators import api_view
 import yaml
 
 def onepanel_authorize(request):
-    # auth_token = AuthToken.get_auth_token(request)
-    auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    auth_token = AuthToken.get_auth_token(request)
+    #auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
         api_key = { 'Bearer': auth_token})
