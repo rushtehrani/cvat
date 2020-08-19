@@ -14,7 +14,7 @@ class AuthToken:
 
     @staticmethod
     def validate_token(token: str, username: str, onepanel_api_url: str) -> bool:
-        if username != 'admin':
+        if username == '':
             return False
         # Defining the host is optional and defaults to http://localhost:8888
         # See configuration.py for a list of all supported configuration parameters.
