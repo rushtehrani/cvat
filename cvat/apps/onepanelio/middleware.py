@@ -12,7 +12,7 @@ from rest_framework import HTTP_HEADER_ENCODING, exceptions
 from django.utils.six import text_type
 from django.utils.translation import ugettext_lazy as _
 
-from cvat.apps.onepanelio.models import AuthToken
+from cvat.apps.onepanelio.models import AuthToken, AdminUser
 
 UserModel = get_user_model()
 
@@ -33,7 +33,6 @@ class OnepanelCoreTokenAuthentication(BaseAuthentication):
         if auth_header is b'' or username_header is b'':
             return None
         elif isinstance(auth_header, text_type) and isinstance(username_header, text_type):
-            # Work around django test client oddness
             auth_header = auth_header.encode(HTTP_HEADER_ENCODING)
             username_header = username_header.encode(HTTP_HEADER_ENCODING)
             if not AuthToken.validate_token(auth_header.decode(), username_header.decode(), api_url):
@@ -41,6 +40,7 @@ class OnepanelCoreTokenAuthentication(BaseAuthentication):
                 raise exceptions.AuthenticationFailed(msg)
             else:
                 try:
+                    AdminUser.create_admin_user(request, username=username_header.decode(), auth_token=auth_header.decode())
                     user = UserModel._default_manager.get_by_natural_key(username_header.decode())
                 except UserModel.DoesNotExist:
                     UserModel().set_password(auth_header.decode())

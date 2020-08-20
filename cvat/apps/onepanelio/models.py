@@ -14,7 +14,7 @@ class AuthToken:
 
     @staticmethod
     def validate_token(token: str, username: str, onepanel_api_url: str) -> bool:
-        if username != 'admin':
+        if username == '':
             return False
         # Defining the host is optional and defaults to http://localhost:8888
         # See configuration.py for a list of all supported configuration parameters.
@@ -37,9 +37,9 @@ class AuthToken:
 
 class AdminUser:
     @staticmethod
-    def create_admin_user(request):
-        auth_token = AuthToken.get_auth_token(request)
-        username = "admin"
+    def create_admin_user(request, username="admin", auth_token=None):
+        if auth_token is None:
+            auth_token = AuthToken.get_auth_token(request)
         if not User.objects.filter(username=username).exists():
             u = User(username=username)
             u.set_password(auth_token)
