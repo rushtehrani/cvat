@@ -26,7 +26,7 @@ import yaml
 
 def onepanel_authorize(request):
     auth_token = AuthToken.get_auth_token(request)
-    #auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
+    # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
         api_key = { 'Bearer': auth_token})
@@ -125,8 +125,6 @@ def get_workflow_parameters(request):
     except ApiException as e:
         print("Exception when calling WorkflowTemplateServiceApi->list_workflow_templates: %s\n" % e)
 
-
-
 @api_view(['POST'])
 def get_node_pool(request):
     configuration = onepanel_authorize(request)
@@ -178,7 +176,9 @@ def get_model_keys(request):
         else:
             checkpoint_paths = [os.path.join(*[os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')]+c.split("/")[-4:]) for c in checkpoints]
             checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 5 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output'))] 
-        return Response({'keys':checkpoint_path_filtered})
+        checkpoint_path_ordered = ['/home/django/share/'+'/'.join(i.split('/')[1:]) for i in checkpoint_path_filtered]
+        checkpoint_path_ordered.sort(key=os.path.getmtime, reverse=True)        
+        return Response({'keys':checkpoint_path_ordered})
     except:
         return Response({'keys':[]})
 

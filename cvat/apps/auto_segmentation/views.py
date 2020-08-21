@@ -132,9 +132,6 @@ def run_tensorflow_auto_segmentation(image_list, labels_mapping, treshold, model
 		
 		for i in range(config.GPU_COUNT):
 			images_org.append(np.array(Image.open(images[i][0])))
-		
-		slogger.glob.info("images_org {}".format(images_org))
-
 
 		# for multiple image detection, "batch size" must be equal to number of images
 		res = model.detect(images_org)
@@ -146,11 +143,12 @@ def run_tensorflow_auto_segmentation(image_list, labels_mapping, treshold, model
 
 		for r in res:
 			for index, c_id in enumerate(r['class_ids']):
-				slogger.glob.info("cid in for {}".format(c_id))
 				if c_id in labels_mapping.keys():
 					if r['scores'][index] >= treshold:
 						mask = _convert_to_int(r['masks'][:,:,index])
 						segmentation = _convert_to_segmentation(mask)
+						if len(segmentation) < 5:
+							continue
 						label = labels_mapping[c_id]
 						if label not in result:
 							result[label] = []
