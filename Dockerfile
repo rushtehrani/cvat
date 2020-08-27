@@ -110,9 +110,9 @@ RUN if [ "$AUTO_SEGMENTATION" = "yes" ]; then \
 
 # Install and initialize CVAT, copy all necessary files
 COPY cvat/requirements/ /tmp/requirements/
-COPY default_superuser.py supervisord.conf mod_wsgi.conf wait-for-it.sh manage.py ${HOME}/
+COPY supervisord.conf mod_wsgi.conf wait-for-it.sh manage.py ${HOME}/
 RUN python3 -m pip install --no-cache-dir -r /tmp/requirements/${DJANGO_CONFIGURATION}.txt
-WORKDIR "/opt/intel/openvino_2020.2.120/python/python3/"
+WORKDIR "/opt/intel/openvino_2020.4.287/python/python3/"
 RUN rm -rf *
 RUN python3 -m pip uninstall -y opencv-contrib-python
 RUN python3 -m pip install --no-cache-dir opencv-contrib-python

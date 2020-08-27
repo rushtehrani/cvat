@@ -822,7 +822,6 @@ function ObjectItemComponent(props: Props): JSX.Element {
         onTrackerClick,
     } = props;
 
-    console.log(tracking);
 
     const type = objectType === ObjectType.TAG ? ObjectType.TAG.toUpperCase()
         : `${shapeType.toUpperCase()} ${objectType.toUpperCase()}`;

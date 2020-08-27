@@ -55,8 +55,13 @@ def create_model(request):
         is_shared = params["shared"].lower() == "true"
         if is_shared and not has_admin_role(request.user):
             raise Exception("Only admin can create shared models")
-
-        files = request.FILES if storage == "local" else params
+        # files = request.FILES if storage == "local" else []
+        if storage == "local":
+            files = request.FILES
+        elif params['pb']:
+            files = {'csv':params['csv'], 'pb':params['pb']}
+        elif params['h5']:
+            files = {'csv':params['csv'], 'h5':params['h5']} 
         is_custom = "openvino"
         if "pb" in files:
             labelmap = files["csv"]
@@ -170,15 +175,10 @@ def get_meta_info(request):
         dl_model_list = list(AnnotationModel.objects.filter(Q(owner=request.user) | Q(primary=True) | Q(shared=True)).order_by('-created_date'))
         for dl_model in dl_model_list:
             labels = []
-            # print(dl_model.labelmap_file.name)
             if dl_model.labelmap_file and os.path.exists(dl_model.labelmap_file.name):
                 if dl_model.framework == "tensorflow" or dl_model.framework == "maskrcnn":
-                    # print("reading csv file")
                     with open(dl_model.labelmap_file.name,"r") as f:
                         labels = [label.strip("\n").strip("").split(",")[0] for label in f.readlines() if "labels" not in label]
-                # elif  dl_model.framework == "maskrcnn":
-                #     with open(dl_model.labelmap_file.name,"r") as f:
-                #         labels = [label.strip("\n").strip("").split(",")[0] for label in f.readlines() if "labels" not in label]
                 else:
                     with dl_model.labelmap_file.open('r') as f:
                         labels = list(json.load(f)["label_map"].values())

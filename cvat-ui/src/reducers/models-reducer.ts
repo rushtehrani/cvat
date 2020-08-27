@@ -4,6 +4,7 @@
 
 import { boundariesActions, BoundariesActionTypes } from 'actions/boundaries-actions';
 import { ModelsActionTypes, ModelsActions } from 'actions/models-actions';
+import {CreateAnnotationActionTypes, CreateAnnotationActions } from 'onepanelio/createAnnotationModal/createAnnotation.action';
 import { AuthActionTypes, AuthActions } from 'actions/auth-actions';
 import { ModelsState } from './interfaces';
 
@@ -18,11 +19,13 @@ const defaultState: ModelsState = {
     visibleNewAnnotationWindows: false,
     activeNewAnnotationTask: null,
     baseModelList: [],
+    workflowTemplates: [],
+    fetchingWorkflowTemplates: false,
 };
 
 export default function (
     state = defaultState,
-    action: ModelsActions | AuthActions | boundariesActions,
+    action: ModelsActions | AuthActions | boundariesActions | CreateAnnotationActions,
 ): ModelsState {
     switch (action.type) {
         case ModelsActionTypes.GET_MODELS: {
@@ -94,20 +97,39 @@ export default function (
                 activeRunTask: null,
             };
         }
-        case ModelsActionTypes.OPEN_NEW_ANNOTATION_DIALOG: {
+        case CreateAnnotationActionTypes.OPEN_NEW_ANNOTATION_DIALOG: {
             return {
                 ...state,
                 visibleNewAnnotationWindows: true,
                 activeNewAnnotationTask: action.payload.taskInstance,
+                fetchingWorkflowTemplates: true,
             };
         }
-        case ModelsActionTypes.GET_BASE_MODEL: {
+        case CreateAnnotationActionTypes.GET_WORKFLOW_TEMPLATES_SUCCESS: {
+            return {
+                ...state,
+                workflowTemplates: action.payload.workflowTemplates,
+            };
+        }
+        case CreateAnnotationActionTypes.GET_WORKFLOW_TEMPLATES_ERROR: {
+            return {
+                ...state,
+                workflowTemplates: [],
+            };
+        }
+        case CreateAnnotationActionTypes.HIDE_FETCHING_WORKFLOW_TEMPLATE: {
+            return {
+                ...state,
+                fetchingWorkflowTemplates: false,
+            };
+        }
+        case CreateAnnotationActionTypes.GET_BASE_MODEL: {
             return {
                 ...state,
                 baseModelList: action.payload.baseModelList,
             };
         }
-        case ModelsActionTypes.CLOSE_NEW_ANNOTATION_DIALOG: {
+        case CreateAnnotationActionTypes.CLOSE_NEW_ANNOTATION_DIALOG: {
             return {
                 ...state,
                 visibleNewAnnotationWindows: false,

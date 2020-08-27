@@ -267,7 +267,6 @@ class ObjectsListContainer extends React.PureComponent<Props, State> {
             tracker_frame_number,
             resetTracker
         } = this.props;
-        console.log(tracker_type, tracker_until, tracker_frame_number);
         resetTracker();
     }
 

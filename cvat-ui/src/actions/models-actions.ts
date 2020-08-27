@@ -37,9 +37,6 @@ export enum ModelsActionTypes {
     CLOSE_RUN_MODEL_DIALOG = 'CLOSE_RUN_MODEL_DIALOG',
     CANCEL_INFERENCE_SUCCESS = 'CANCEL_INFERENCE_SUCCESS',
     CANCEL_INFERENCE_FAILED = 'CANCEL_INFERENCE_FAILED',
-    OPEN_NEW_ANNOTATION_DIALOG = 'SHOW_NEW_ANNOTATION_DIALOG',
-    CLOSE_NEW_ANNOTATION_DIALOG = 'CLOSE_NEW_ANNOTATION_DIALOG',
-    GET_BASE_MODEL = 'GET_BASE_MODEL',
 }
 
 export const modelsActions = {
@@ -112,17 +109,6 @@ export const modelsActions = {
             taskInstance,
         },
     ),
-    openNewAnnotationDialog: (taskInstance: any) => createAction(
-        ModelsActionTypes.OPEN_NEW_ANNOTATION_DIALOG, { 
-            taskInstance,
-         },
-    ),
-    getBaseModelList: (baseModelList: string[]) => createAction(
-        ModelsActionTypes.GET_BASE_MODEL, {
-            baseModelList,
-        },
-    ),
-    closeNewAnnotationDialog: () => createAction(ModelsActionTypes.CLOSE_NEW_ANNOTATION_DIALOG),
 };
 
 export type ModelsActions = ActionUnion<typeof modelsActions>;
@@ -287,7 +273,7 @@ export function createModelAsync(name: string, files: ModelFiles | CsvModelFiles
         dispatch(modelsActions.createModel());
         const data = new FormData();
         data.append('name', name);
-        data.append('storage', typeof files.bin === 'string' ? 'shared' : 'local');
+        data.append('storage', typeof files.bin === 'object' || typeof files.csv === 'object' ? 'local' : 'shared');
         data.append('shared', global.toString());
         Object.keys(files).reduce((acc, key: string): FormData => {
             acc.append(key, files[key]);
@@ -596,24 +582,4 @@ export function cancelInferenceAsync(taskID: number): ThunkAction {
             dispatch(modelsActions.cancelInferenceFaild(taskID, error));
         }
     };
-}
-
-export function getBaseModelsAsync(taskInstance: any, modelType: string) : ThunkAction {
-    return async(dispatch, getState): Promise<void> => {
-        try {
-            const {keys} = await core.server.request(
-                `${baseURL}/api/v1/tasks/${taskInstance.id}/get_base_model`, {
-                    method: 'POST',
-                    data: {model_type: modelType},
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                }
-            )
-
-            dispatch(modelsActions.getBaseModelList(keys || []));
-        } catch (e) {
-
-        }
-    }
 }

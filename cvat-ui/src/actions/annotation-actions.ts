@@ -1543,14 +1543,13 @@ export function doTracking(body: any, taskId: string): ThunkAction<Promise<void>
         });
         const baseUrl = cvat.config.backendAPI.slice(0, -7);
         try {
-            cvat.server.request(`${baseUrl}/tensorflow/annotation/tracking/task/${taskId}`, {
+            cvat.server.request(`${baseUrl}/tracking/track/${taskId}`, {
                 method: 'POST',
                 data: JSON.stringify(body),
                 headers: {
                     'Content-Type': 'application/json',
                 },
             }).then((response: any) => {
-                console.log(response)
                 dispatch({
                     type: AnnotationActionTypes.DO_TRACKING_SUCCESS,
                 });

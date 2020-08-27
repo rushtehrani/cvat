@@ -11,7 +11,7 @@ const GITTER_PUBLIC_URL = 'https://gitter.im/opencv-cvat/public';
 const FORUM_URL = 'https://software.intel.com/en-us/forums/intel-distribution-of-openvino-toolkit';
 const GITHUB_URL = 'https://github.com/opencv/cvat';
 const GITHUB_IMAGE_URL = 'https://raw.githubusercontent.com/opencv/cvat/develop/cvat/apps/documentation/static/documentation/images/cvat.jpg';
-const AUTO_ANNOTATION_GUIDE_URL = 'https://github.com/opencv/cvat/blob/develop/cvat/apps/auto_annotation/README.md';
+const AUTO_ANNOTATION_GUIDE_URL = 'https://docs.onepanel.ai/docs/getting-started/use-cases/computervision/annotation/cvat/cvat_automatic_annotation#uploading-your-model-on-cvat';
 const SHARE_MOUNT_GUIDE_URL = 'https://github.com/opencv/cvat/blob/master/cvat/apps/documentation/installation.md#share-path';
 
 export default {

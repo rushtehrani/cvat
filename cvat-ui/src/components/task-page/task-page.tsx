@@ -15,7 +15,7 @@ import JobListContainer from 'containers/task-page/job-list';
 import ModelRunnerModalContainer from 'containers/model-runner-dialog/model-runner-dialog';
 import { Task } from 'reducers/interfaces';
 import TopBarComponent from './top-bar';
-import ModelNewAnnotationModalContainer from  'containers/model-new-annotation-dialog/model-new-annotation-dialog';
+import ModelNewAnnotationModalContainer from  'onepanelio/createAnnotationModal/createAnnotation.container';
 
 interface TaskPageComponentProps {
     task: Task | null | undefined;

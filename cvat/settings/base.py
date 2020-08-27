@@ -126,6 +126,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'cvat.apps.onepanelio.middleware.OnepanelCoreTokenAuthentication',
         'cvat.apps.authentication.auth.TokenAuthentication',
         'cvat.apps.authentication.auth.SignatureAuthentication',
         'rest_framework.authentication.SessionAuthentication',
@@ -171,7 +172,7 @@ if 'yes' == os.environ.get('WITH_DEXTR', 'no'):
 if os.getenv('DJANGO_LOG_VIEWER_HOST'):
     INSTALLED_APPS += ['cvat.apps.log_viewer']
 
-if 'yes' == os.getenv('TRACKING', 'no'):
+if 'yes' == os.getenv('TRACKING', 'yes'):
     INSTALLED_APPS += ['cvat.apps.tracking']
 
 
@@ -188,6 +189,8 @@ MIDDLEWARE = [
     # FIXME
     # 'corsheaders.middleware.CorsPostCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Add the new middleware just after the default AuthenticationMiddleware that manages sessions and cookies
+    'cvat.apps.onepanelio.middleware.AutomaticUserLoginMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'dj_pagination.middleware.PaginationMiddleware',
@@ -228,6 +231,8 @@ LOGIN_REDIRECT_URL = '/'
 AUTH_LOGIN_NOTE = '<p>Have not registered yet? <a href="/auth/register">Register here</a>.</p>'
 
 AUTHENTICATION_BACKENDS = [
+    'cvat.apps.onepanelio.backends.OnepanelIORestBackend',
+    'cvat.apps.onepanelio.backends.OnepanelIOBackend',
     'rules.permissions.ObjectPermissionBackend',
     'django.contrib.auth.backends.ModelBackend'
 ]

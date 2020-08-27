@@ -487,7 +487,6 @@ class ObjectItemContainer extends React.PureComponent<Props> {
             frameNumber
         } = this.props;
 
-        console.log(match.params.tid);
 
         return {
             jobId: jobInstance.id,
@@ -527,7 +526,6 @@ class ObjectItemContainer extends React.PureComponent<Props> {
             handleTracking,
             resetTracker,
         } = this.props;
-        console.log(this.props);
         let payload: TrackerPayload = this.createTrackerPayload();
         handleTracking(payload, match.params.tid);
         // resetTracker();
