@@ -12,6 +12,8 @@ import Paragraph from 'antd/lib/typography/Paragraph';
 import Upload, { RcFile } from 'antd/lib/upload';
 import Empty from 'antd/lib/empty';
 import Tree, { AntTreeNode, TreeNodeNormal } from 'antd/lib/tree/Tree';
+import getCore from 'cvat-core-wrapper';
+const cvat = getCore();
 
 import consts from 'consts';
 
@@ -25,6 +27,7 @@ interface State {
     files: Files;
     expandedKeys: string[];
     active: 'local' | 'share' | 'remote';
+    status: string;
 }
 
 interface Props {
@@ -34,6 +37,8 @@ interface Props {
 }
 
 export default class FileManager extends React.PureComponent<Props, State> {
+    intervalID: any;
+
     public constructor(props: Props) {
         super(props);
 
@@ -83,6 +88,35 @@ export default class FileManager extends React.PureComponent<Props, State> {
             },
         });
     }
+    
+    
+    getFileSyncerStatus(){
+        const baseUrl: string = cvat.config.backendAPI.slice(0, -7);
+        console.log(baseUrl);
+        console.log("running...");
+        // replace url with baseURL in docker image
+        fetch(baseUrl+"/sys/filesyncer/api/status")
+            .then(response=>response.json())
+            .then(data=>{
+                this.setState({status:data});
+                // 
+            });
+      
+    }
+
+    componentDidMount() {
+        this.intervalID = setInterval(()=>this.getFileSyncerStatus(), 5000);      }
+
+    componentWillUnmount() {
+    /*
+        stop getData() from continuing to run even
+        after unmounting this component. Notice we are calling
+        'clearTimeout()` here rather than `clearInterval()` as
+        in the previous example.
+    */
+    clearInterval(this.intervalID);
+    }
+
 
     private renderLocalSelector(): JSX.Element {
         const { files } = this.state;
@@ -127,6 +161,24 @@ export default class FileManager extends React.PureComponent<Props, State> {
         );
     }
 
+    
+    private renderFileSyncerDownloadedMsg(status: any){
+        console.log("inside");
+        console.log(status);
+        var re = /^\d{4}(\-)(((0)[0-9])|((1)[0-2]))(\-)([0-2][0-9]|(3)[0-1])/;
+        if (re.test(status.LastDownload)){
+            return (
+                <div>
+                <p className='ant-text'> New files are downloaded <a onClick={()=>this.loadData('/')}>Refresh</a></p>
+                </div>
+            )
+        } else if(status.LastDownload==null){
+            return (
+                <p className='ant-text'> Files are being downloaded...</p>
+            )
+        }
+    }
+    
     private renderShareSelector(): JSX.Element {
         function renderTreeNodes(data: TreeNodeNormal[]): JSX.Element[] {
             return data.map((item: TreeNodeNormal) => {
@@ -153,11 +205,17 @@ export default class FileManager extends React.PureComponent<Props, State> {
             expandedKeys,
             files,
         } = this.state;
+        console.log("inside renderShareSelector");
+        console.log(status);
 
         return (
             <Tabs.TabPane key='share' tab='Connected file share'>
+                <div>
+                        <p className="ant-text"> {this.renderFileSyncerDownloadedMsg(status)}</p>
+                </div>
                 { treeData[0].children && treeData[0].children.length
-                    ? (
+                    ? 
+                    (
                         <Tree
                             className='cvat-share-tree'
                             checkable
