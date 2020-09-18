@@ -166,6 +166,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
         console.log("inside");
         console.log(status);
         var re = /^\d{4}(\-)(((0)[0-9])|((1)[0-2]))(\-)([0-2][0-9]|(3)[0-1])/;
+        if (status){
         if (re.test(status.LastDownload)){
             return (
                 <div>
@@ -177,6 +178,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 <p className='ant-text'> Files are being downloaded...</p>
             )
         }
+    }
     }
     
     private renderShareSelector(): JSX.Element {
@@ -204,6 +206,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
         const {
             expandedKeys,
             files,
+            status,
         } = this.state;
         console.log("inside renderShareSelector");
         console.log(status);
