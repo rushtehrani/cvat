@@ -24,10 +24,11 @@ export interface Files {
 }
 
 interface State {
+    loadedKeys: string[],
     files: Files;
     expandedKeys: string[];
     active: 'local' | 'share' | 'remote';
-    status: string;
+    status?: string;
 }
 
 interface Props {
@@ -48,6 +49,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 share: [],
                 remote: [],
             },
+            loadedKeys: [],
             expandedKeys: [],
             active: 'local',
         };
@@ -79,6 +81,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
 
     public reset(): void {
         this.setState({
+            loadedKeys: [],
             expandedKeys: [],
             active: 'local',
             files: {
@@ -92,20 +95,22 @@ export default class FileManager extends React.PureComponent<Props, State> {
     
     getFileSyncerStatus(){
         const baseUrl: string = cvat.config.backendAPI.slice(0, -7);
-        console.log(baseUrl);
-        console.log("running...");
         // replace url with baseURL in docker image
-        fetch(baseUrl+"/sys/filesyncer/api/status")
+        fetch(baseUrl + '/sys/filesyncer/api/status')
             .then(response=>response.json())
             .then(data=>{
+                if(data && data.LastDownload) {
+                    clearInterval(this.intervalID);
+                }
+
                 this.setState({status:data});
-                // 
             });
       
     }
 
     componentDidMount() {
-        this.intervalID = setInterval(()=>this.getFileSyncerStatus(), 5000);      }
+        this.intervalID = setInterval(()=>this.getFileSyncerStatus(), 5000);      
+    }
 
     componentWillUnmount() {
     /*
@@ -114,7 +119,9 @@ export default class FileManager extends React.PureComponent<Props, State> {
         'clearTimeout()` here rather than `clearInterval()` as
         in the previous example.
     */
-    clearInterval(this.intervalID);
+        if(this.intervalID) {
+            clearInterval(this.intervalID);
+        }
     }
 
 
@@ -161,24 +168,38 @@ export default class FileManager extends React.PureComponent<Props, State> {
         );
     }
 
+    private reloadRoot() {
+        const { files } = this.state;
+
+        this.setState({
+            loadedKeys: [],
+            expandedKeys: [],
+            files: {
+                ...files,
+                share: [],
+            }
+        });
+
+        this.loadData('/');        
+    }
+
     
     private renderFileSyncerDownloadedMsg(status: any){
-        console.log("inside");
-        console.log(status);
-        var re = /^\d{4}(\-)(((0)[0-9])|((1)[0-2]))(\-)([0-2][0-9]|(3)[0-1])/;
-        if (status){
-        if (re.test(status.LastDownload)){
+        if(!status) {
+            return;
+        }
+
+        if (status.LastDownload){
             return (
-                <div>
-                <p className='ant-text'> New files are downloaded <a onClick={()=>this.loadData('/')}>Refresh</a></p>
-                </div>
+                <span>
+                    New files are downloaded <a onClick={()=>this.reloadRoot()}>Refresh</a>
+                </span>
             )
-        } else if(status.LastDownload==null){
+        } else {
             return (
-                <p className='ant-text'> Files are being downloaded...</p>
+                <span> Files are being downloaded...</span>
             )
         }
-    }
     }
     
     private renderShareSelector(): JSX.Element {
@@ -207,14 +228,13 @@ export default class FileManager extends React.PureComponent<Props, State> {
             expandedKeys,
             files,
             status,
+            loadedKeys
         } = this.state;
-        console.log("inside renderShareSelector");
-        console.log(status);
 
         return (
             <Tabs.TabPane key='share' tab='Connected file share'>
                 <div>
-                        <p className="ant-text"> {this.renderFileSyncerDownloadedMsg(status)}</p>
+                    <p className="ant-text"> {this.renderFileSyncerDownloadedMsg(status)}</p>
                 </div>
                 { treeData[0].children && treeData[0].children.length
                     ? 
@@ -226,9 +246,9 @@ export default class FileManager extends React.PureComponent<Props, State> {
                             checkStrictly={false}
                             expandedKeys={expandedKeys}
                             checkedKeys={files.share}
-                            loadData={(node: AntTreeNode): Promise<void> => this.loadData(
-                                node.props.dataRef.key,
-                            )}
+                            loadedKeys={loadedKeys}
+                            loadData={(node: AntTreeNode): Promise<void> => 
+                                this.loadData(node.props.dataRef.key) }
                             onExpand={(newExpandedKeys: string[]): void => {
                                 this.setState({
                                     expandedKeys: newExpandedKeys,
