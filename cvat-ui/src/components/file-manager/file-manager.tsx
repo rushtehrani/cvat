@@ -191,9 +191,8 @@ export default class FileManager extends React.PureComponent<Props, State> {
 
         if (status.LastDownload){
             return (
-                <p class="ant-alert ant-alert-info ant-alert-no-icon"> <span>All files are synced from object storage.<a style="
-                margin-left: 10px;
-            ">Refresh</a></span></p>
+                <p class="ant-alert ant-alert-info ant-alert-no-icon"> <span>All files are synced from object storage.<a style={{marginLeft: '10px'}}>
+                    Refresh</a></span></p>
             )
         } else {
             return (
