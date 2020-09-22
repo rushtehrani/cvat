@@ -191,14 +191,13 @@ export default class FileManager extends React.PureComponent<Props, State> {
 
         if (status.LastDownload){
             return (
-                <span>
-                    New files are downloaded <a onClick={()=>this.reloadRoot()}>Refresh</a>
-                </span>
+                <p class="ant-alert ant-alert-info ant-alert-no-icon"> <span>All files are synced from object storage.<a style="
+                margin-left: 10px;
+            ">Refresh</a></span></p>
             )
         } else {
             return (
-                <span> Files are being downloaded...</span>
-            )
+                <p class="ant-alert ant-alert-info ant-alert-no-icon"> <span>Syncing new files from object storage...</span></p>            )
         }
     }
     
