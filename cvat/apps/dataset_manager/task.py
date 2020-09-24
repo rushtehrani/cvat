@@ -145,6 +145,7 @@ class TaskProject:
             self._project.save(save_dir=save_dir)
 
     def export(self, dst_format, save_dir, save_images=False, server_url=None):
+        print("Export", dst_format)
         if self._dataset is None:
             self._init_dataset()
         if dst_format == EXPORT_FORMAT_DATUMARO_PROJECT:

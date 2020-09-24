@@ -345,23 +345,26 @@ class Dataset(Extractor):
         self._categories = categories
 
     def __iter__(self):
+        anno_key = ''.join(filter(lambda x: 'anno' in x, self._sources.keys()))
+        images_key = ''.join(filter(lambda x: 'images' in x, self._sources.keys()))
         config = self.config
         env = self.env
-        for source_name, source in self._sources.items():
-            log.debug("Loading '%s' source contents..." % source_name)
-            for item in source:
-                s_config = config.sources[source_name]
-                if s_config and \
-                        s_config.format != env.PROJECT_EXTRACTOR_NAME:
-                    # NOTE: consider imported sources as our own dataset
-                    path = None
-                else:
-                    path = item.path
-                    if path is None:
-                        path = []
-                    path = [source_name] + path
-                item = item.wrap(path=path, annotations=item.annotations)
-                yield item
+    
+        for item, item_image in zip(self._sources[anno_key], self._sources[images_key]):
+    
+            s_config = config.sources[anno_key]
+            if s_config and \
+                    s_config.format != env.PROJECT_EXTRACTOR_NAME:
+                # NOTE: consider imported sources as our own dataset
+                path = None
+            else:
+                path = item.path
+                if path is None:
+                    path = []
+                path = [anno_key] + path
+            # use data from item_image
+            item = item.wrap(path=path, annotations=item.annotations, image=item_image.image)
+            yield item
 
     def __len__(self):
         if self._length is None:

@@ -63,7 +63,7 @@ class TfDetectionApiConverter(Converter, CliPlugin):
 
     def __call__(self, extractor, save_dir):
         os.makedirs(save_dir, exist_ok=True)
-
+        
         label_categories = extractor.categories().get(AnnotationType.label,
             LabelCategories())
         get_label = lambda label_id: label_categories.items[label_id].name \
