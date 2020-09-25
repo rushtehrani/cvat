@@ -29,7 +29,7 @@ interface State {
     files: Files;
     expandedKeys: string[];
     active: 'local' | 'share' | 'remote';
-    status?: string;
+    status?: any;
 }
 
 interface Props {
@@ -109,8 +109,13 @@ export default class FileManager extends React.PureComponent<Props, State> {
         fetch(baseUrl + '/sys/filesyncer/api/status')
             .then(response=>response.json())
             .then(data=>{
-                if(data && data.lastDownload) {
+                if(data && data.lastDownload && this.intervalID) {
                     clearInterval(this.intervalID);
+                }
+
+                const { status } = this.state;
+                if(status && status.done) {
+                    return;
                 }
 
                 this.setState({status:data});
@@ -179,7 +184,11 @@ export default class FileManager extends React.PureComponent<Props, State> {
         );
     }
 
-    private reloadRoot() {
+    private refreshFiles() {
+        if(this.intervalID) {
+            clearInterval(this.intervalID);
+        }
+
         const { files } = this.state;
 
         this.setState({
@@ -188,16 +197,14 @@ export default class FileManager extends React.PureComponent<Props, State> {
             files: {
                 ...files,
                 share: [],
-            }
+            },
+            status: {done: true}
         });  
-
-        // clear out the message
-        this.renderFileSyncerDownloadedMsg();
     }
 
     
-    private renderFileSyncerDownloadedMsg(status: any = undefined){
-        if(!status) {
+    private renderFileSyncerDownloadedMsg(status: any){
+        if(!status || status.done) {
             return;
         }
 
@@ -205,7 +212,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
             return (
                 <span className="ant-alert ant-alert-info ant-alert-no-icon">
                     <span>All files are synced from object storage.
-                        <a style={{marginLeft: '5px'}} onClick={() => this.reloadRoot()}>Refresh</a>
+                        <a style={{marginLeft: '5px'}} onClick={() => this.refreshFiles()}>Refresh</a>
                     </span>
                 </span>
             )
