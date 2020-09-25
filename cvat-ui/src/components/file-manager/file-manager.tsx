@@ -119,6 +119,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
     }
 
     componentDidMount() {
+        this.getFileSyncerStatus();
         this.intervalID = setInterval(()=>this.getFileSyncerStatus(), 5000);      
     }
 
