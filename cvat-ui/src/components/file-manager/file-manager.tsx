@@ -16,6 +16,7 @@ import getCore from 'cvat-core-wrapper';
 const cvat = getCore();
 
 import consts from 'consts';
+import { Alert } from 'antd';
 
 export interface Files {
     local: File[];
@@ -76,6 +77,15 @@ export default class FileManager extends React.PureComponent<Props, State> {
             const success = (): void => resolve();
             const failure = (): void => reject();
             onLoadData(key, success, failure);
+
+            // Only do this if mounted. Otherwise it's an error.
+            if(this.intervalID) {
+                const { loadedKeys } = this.state;
+                loadedKeys.push(key);
+                this.setState({
+                    loadedKeys
+                });
+            }
         },
     );
 
@@ -189,14 +199,29 @@ export default class FileManager extends React.PureComponent<Props, State> {
             return;
         }
 
-        if (status.LastDownload){
+        if(status.LastDownload){
             return (
-                <p class="ant-alert ant-alert-info ant-alert-no-icon"> <span>All files are synced from object storage.<a style={{marginLeft: '10px'}}>
-                    Refresh</a></span></p>
+                <span className="ant-alert ant-alert-info ant-alert-no-icon">
+                    <span>All files are synced from object storage.
+                        <a style={{marginLeft: '5px'}}>Refresh</a>
+                    </span>
+                </span>
             )
+        } 
+        
+        if(status.Error) {
+            const errorMessage = `Error downloading files. ${status.Error}`;
+            return (
+                <Alert 
+                    message={errorMessage}
+                    type="error"/>
+            )  
         } else {
             return (
-                <p class="ant-alert ant-alert-info ant-alert-no-icon"> <span>Syncing new files from object storage...</span></p>            )
+                <Alert 
+                    message="Syncing new files from object storage..."
+                    type="info"/>
+            )
         }
     }
     
@@ -246,7 +271,8 @@ export default class FileManager extends React.PureComponent<Props, State> {
                             checkedKeys={files.share}
                             loadedKeys={loadedKeys}
                             loadData={(node: AntTreeNode): Promise<void> => 
-                                this.loadData(node.props.dataRef.key) }
+                                this.loadData(node.props.dataRef.key) 
+                            }
                             onExpand={(newExpandedKeys: string[]): void => {
                                 this.setState({
                                     expandedKeys: newExpandedKeys,
