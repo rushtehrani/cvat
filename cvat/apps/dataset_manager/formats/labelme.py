@@ -33,12 +33,9 @@ class CvatLabelMeConverter(Converter):
 
         env = Environment()
         id_from_image = env.transforms.get('id_from_image_name')
-        print("before***")
-        print(extractor._sources)
         orig_sources = extractor._sources
         extractor = extractor.transform(id_from_image)
         extractor = Dataset.from_extractors(orig_sources, extractor) # apply lazy transforms
-
         converter = env.make_converter('label_me', save_images=self._save_images)
         converter(extractor, save_dir=save_dir)
 

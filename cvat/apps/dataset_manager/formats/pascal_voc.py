@@ -71,17 +71,9 @@ class CvatVocConverter(Converter):
         from datumaro.components.project import Environment, Dataset
         env = Environment()
         id_from_image = env.transforms.get('id_from_image_name')
-        print("before *****")
-        print(extractor._sources)
-        print(type(extractor))
         orig_sources = extractor._sources
         extractor = extractor.transform(id_from_image)
-        # print("middle")
-        # print(extractor._sources)
         extractor = Dataset.from_extractors(orig_sources,extractor) # apply lazy transforms
-        print("after*********")
-        # print(extractor._sources)
-        print(type(extractor))
         converter = env.make_converter('voc', label_map='source',
             save_images=self._save_images)
         converter(extractor, save_dir=save_dir)

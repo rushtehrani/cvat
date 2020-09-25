@@ -152,8 +152,6 @@ class TaskProject:
         else:
             converter = self._dataset.env.make_converter(dst_format,
                 save_images=save_images)
-            print("*converter")
-            print(converter)
             self._dataset.export_project(converter=converter, save_dir=save_dir)
 
     def _remote_image_converter(self, save_dir, server_url=None):
