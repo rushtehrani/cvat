@@ -124,12 +124,12 @@ export default class FileManager extends React.PureComponent<Props, State> {
     }
 
     componentWillUnmount() {
-    /*
-        stop getData() from continuing to run even
-        after unmounting this component. Notice we are calling
-        'clearTimeout()` here rather than `clearInterval()` as
-        in the previous example.
-    */
+        /*
+            stop getData() from continuing to run even
+            after unmounting this component. Notice we are calling
+            'clearTimeout()` here rather than `clearInterval()` as
+            in the previous example.
+        */
         if(this.intervalID) {
             clearInterval(this.intervalID);
         }
@@ -189,13 +189,14 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 ...files,
                 share: [],
             }
-        });
+        });  
 
-        this.loadData('/');        
+        // clear out the message
+        this.renderFileSyncerDownloadedMsg();
     }
 
     
-    private renderFileSyncerDownloadedMsg(status: any){
+    private renderFileSyncerDownloadedMsg(status: any = undefined){
         if(!status) {
             return;
         }
@@ -204,7 +205,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
             return (
                 <span className="ant-alert ant-alert-info ant-alert-no-icon">
                     <span>All files are synced from object storage.
-                        <a style={{marginLeft: '5px'}}>Refresh</a>
+                        <a style={{marginLeft: '5px'}} onClick={() => this.reloadRoot()}>Refresh</a>
                     </span>
                 </span>
             )
