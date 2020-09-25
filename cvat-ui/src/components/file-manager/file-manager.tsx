@@ -109,7 +109,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
         fetch(baseUrl + '/sys/filesyncer/api/status')
             .then(response=>response.json())
             .then(data=>{
-                if(data && data.LastDownload) {
+                if(data && data.lastDownload) {
                     clearInterval(this.intervalID);
                 }
 
@@ -199,7 +199,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
             return;
         }
 
-        if(status.LastDownload){
+        if(status.lastDownload){
             return (
                 <span className="ant-alert ant-alert-info ant-alert-no-icon">
                     <span>All files are synced from object storage.
@@ -209,8 +209,8 @@ export default class FileManager extends React.PureComponent<Props, State> {
             )
         } 
         
-        if(status.Error) {
-            const errorMessage = `Error downloading files. ${status.Error}`;
+        if(status.error) {
+            const errorMessage = `Error downloading files. ${status.error}.`;
             return (
                 <Alert 
                     message={errorMessage}
