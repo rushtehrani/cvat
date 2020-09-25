@@ -280,6 +280,7 @@ class Environment:
         return self.launchers.get(name)(*args, **kwargs)
 
     def make_converter(self, name, *args, **kwargs):
+       
         return self.converters.get(name)(*args, **kwargs)
 
     def register_model(self, name, model):
@@ -306,9 +307,10 @@ class Subset(Extractor):
 
 class Dataset(Extractor):
     @classmethod
-    def from_extractors(cls, *sources):
+    def from_extractors(cls, orig_sources, *sources):
         # merge categories
         # TODO: implement properly with merging and annotations remapping
+        cls._sources = orig_sources
         categories = {}
         for source in sources:
             categories.update(source.categories())
@@ -331,7 +333,6 @@ class Dataset(Extractor):
                     item = cls._merge_items(existing_item, item, path=path)
 
                 subsets[item.subset].items[item.id] = item
-
         dataset._subsets = dict(subsets)
         return dataset
 
@@ -347,23 +348,9 @@ class Dataset(Extractor):
     def __iter__(self):
         anno_key = ''.join(filter(lambda x: 'anno' in x, self._sources.keys()))
         images_key = ''.join(filter(lambda x: 'images' in x, self._sources.keys()))
-        config = self.config
-        env = self.env
     
         for item, item_image in zip(self._sources[anno_key], self._sources[images_key]):
-    
-            s_config = config.sources[anno_key]
-            if s_config and \
-                    s_config.format != env.PROJECT_EXTRACTOR_NAME:
-                # NOTE: consider imported sources as our own dataset
-                path = None
-            else:
-                path = item.path
-                if path is None:
-                    path = []
-                path = [anno_key] + path
-            # use data from item_image
-            item = item.wrap(path=path, annotations=item.annotations, image=item_image.image)
+            item = item.wrap(path=None, annotations=item.annotations, image=item_image.image)
             yield item
 
     def __len__(self):
