@@ -109,6 +109,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
         fetch(baseUrl + '/sys/filesyncer/api/status')
             .then(response=>response.json())
             .then(data=>{
+                
                 if(data && data.lastDownload && this.intervalID) {
                     clearInterval(this.intervalID);
                 }
@@ -116,6 +117,11 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 const { status } = this.state;
                 if(status && status.done) {
                     return;
+                }
+
+                // If the first response is data is finished downloading, indicate it.
+                if(!status && data.lastDownload) {
+                    data = {doneOnFirstLoad: true};
                 }
 
                 this.setState({status:data});
@@ -204,7 +210,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
 
     
     private renderFileSyncerDownloadedMsg(status: any){
-        if(!status || status.done) {
+        if(!status || status.done || status.doneOnFirstLoad) {
             return;
         }
 
@@ -265,8 +271,8 @@ export default class FileManager extends React.PureComponent<Props, State> {
 
         return (
             <Tabs.TabPane key='share' tab='Connected file share'>
-                <div>
-                    <p className="ant-text"> {this.renderFileSyncerDownloadedMsg(status)}</p>
+                <div className="ant-text">
+                    {this.renderFileSyncerDownloadedMsg(status)}
                 </div>
                 { treeData[0].children && treeData[0].children.length
                     ? 
