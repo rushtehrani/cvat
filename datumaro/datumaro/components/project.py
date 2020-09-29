@@ -22,6 +22,7 @@ from datumaro.components.extractor import Extractor
 from datumaro.components.launcher import InferenceWrapper
 from datumaro.components.dataset_filter import \
     XPathDatasetFilter, XPathAnnotationsFilter
+from cvat.apps.dataset_manager.bindings import CvatAnnotationsExtractor
 
 
 def import_foreign_module(name, path, package=None):
@@ -309,7 +310,7 @@ class Dataset(Extractor):
     @classmethod
     def from_extractors(cls, orig_sources, *sources):
         # merge categories
-        # TODO: implement properly with merging and annotations remapping
+        # TODO: implement properly with merging and annotations remapping        
         cls._sources = orig_sources
         categories = {}
         for source in sources:
@@ -346,12 +347,17 @@ class Dataset(Extractor):
         self._categories = categories
 
     def __iter__(self):
-        anno_key = ''.join(filter(lambda x: 'anno' in x, self._sources.keys()))
-        images_key = ''.join(filter(lambda x: 'images' in x, self._sources.keys()))
-    
-        for item, item_image in zip(self._sources[anno_key], self._sources[images_key]):
-            item = item.wrap(path=None, annotations=item.annotations, image=item_image.image)
-            yield item
+        if isinstance(self._sources, CvatAnnotationsExtractor):
+            for item in self._sources:
+                item = item.wrap(path=None, annotations=item.annotations)
+                yield item            
+        else:
+            anno_key = ''.join(filter(lambda x: 'anno' in x, self._sources.keys()))
+            images_key = ''.join(filter(lambda x: 'images' in x, self._sources.keys()))
+        
+            for item, item_image in zip(self._sources[anno_key], self._sources[images_key]):
+                item = item.wrap(path=None, annotations=item.annotations, image=item_image.image)
+                yield item
 
     def __len__(self):
         if self._length is None:
