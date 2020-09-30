@@ -24,6 +24,8 @@ format_spec = {
 
 
 from datumaro.components.converter import Converter
+from datumaro.components.project import ProjectDataset
+
 class CvatLabelMeConverter(Converter):
     def __init__(self, save_images=False):
         self._save_images = save_images
@@ -33,10 +35,12 @@ class CvatLabelMeConverter(Converter):
 
         env = Environment()
         id_from_image = env.transforms.get('id_from_image_name')
-
+        if isinstance(extractor, ProjectDataset):
+            orig_sources = extractor._sources
+        else:
+            orig_sources = extractor
         extractor = extractor.transform(id_from_image)
-        extractor = Dataset.from_extractors(extractor) # apply lazy transforms
-
+        extractor = Dataset.from_extractors(orig_sources, extractor) # apply lazy transforms
         converter = env.make_converter('label_me', save_images=self._save_images)
         converter(extractor, save_dir=save_dir)
 

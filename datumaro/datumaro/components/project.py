@@ -22,6 +22,7 @@ from datumaro.components.extractor import Extractor
 from datumaro.components.launcher import InferenceWrapper
 from datumaro.components.dataset_filter import \
     XPathDatasetFilter, XPathAnnotationsFilter
+from cvat.apps.dataset_manager.bindings import CvatAnnotationsExtractor
 
 
 def import_foreign_module(name, path, package=None):
@@ -280,6 +281,7 @@ class Environment:
         return self.launchers.get(name)(*args, **kwargs)
 
     def make_converter(self, name, *args, **kwargs):
+       
         return self.converters.get(name)(*args, **kwargs)
 
     def register_model(self, name, model):
@@ -306,9 +308,10 @@ class Subset(Extractor):
 
 class Dataset(Extractor):
     @classmethod
-    def from_extractors(cls, *sources):
+    def from_extractors(cls, orig_sources, *sources):
         # merge categories
-        # TODO: implement properly with merging and annotations remapping
+        # TODO: implement properly with merging and annotations remapping        
+        cls._sources = orig_sources
         categories = {}
         for source in sources:
             categories.update(source.categories())
@@ -331,7 +334,6 @@ class Dataset(Extractor):
                     item = cls._merge_items(existing_item, item, path=path)
 
                 subsets[item.subset].items[item.id] = item
-
         dataset._subsets = dict(subsets)
         return dataset
 
@@ -345,8 +347,16 @@ class Dataset(Extractor):
         self._categories = categories
 
     def __iter__(self):
-        for subset in self._subsets.values():
-            for item in subset:
+        if isinstance(self._sources, CvatAnnotationsExtractor):
+            for item in self._sources:
+                item = item.wrap(path=None, annotations=item.annotations)
+                yield item            
+        else:
+            anno_key = ''.join(filter(lambda x: 'anno' in x, self._sources.keys()))
+            images_key = ''.join(filter(lambda x: 'images' in x, self._sources.keys()))
+        
+            for item, item_image in zip(self._sources[anno_key], self._sources[images_key]):
+                item = item.wrap(path=None, annotations=item.annotations, image=item_image.image)
                 yield item
 
     def __len__(self):
@@ -501,50 +511,6 @@ class ProjectDataset(Dataset):
         if own_source is not None and len(own_source) != 0:
             categories.update(own_source.categories())
         self._categories = categories
-
-        # merge items
-        subsets = defaultdict(lambda: Subset(self))
-        for source_name, source in self._sources.items():
-            log.debug("Loading '%s' source contents..." % source_name)
-            for item in source:
-                existing_item = subsets[item.subset].items.get(item.id)
-                if existing_item is not None:
-                    path = existing_item.path
-                    if item.path != path:
-                        path = None # NOTE: move to our own dataset
-                    item = self._merge_items(existing_item, item, path=path)
-                else:
-                    s_config = config.sources[source_name]
-                    if s_config and \
-                            s_config.format != env.PROJECT_EXTRACTOR_NAME:
-                        # NOTE: consider imported sources as our own dataset
-                        path = None
-                    else:
-                        path = item.path
-                        if path is None:
-                            path = []
-                        path = [source_name] + path
-                    item = item.wrap(path=path, annotations=item.annotations)
-
-                subsets[item.subset].items[item.id] = item
-
-        # override with our items, fallback to existing images
-        if own_source is not None:
-            log.debug("Loading own dataset...")
-            for item in own_source:
-                existing_item = subsets[item.subset].items.get(item.id)
-                if existing_item is not None:
-                    item = item.wrap(path=None,
-                        image=self._merge_images(existing_item, item),
-                        annotations=item.annotations)
-
-                subsets[item.subset].items[item.id] = item
-
-        # TODO: implement subset remapping when needed
-        subsets_filter = config.subsets
-        if len(subsets_filter) != 0:
-            subsets = { k: v for k, v in subsets.items() if k in subsets_filter}
-        self._subsets = dict(subsets)
 
         self._length = None
 

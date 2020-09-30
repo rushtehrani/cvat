@@ -63,7 +63,7 @@ class TfDetectionApiConverter(Converter, CliPlugin):
 
     def __call__(self, extractor, save_dir):
         os.makedirs(save_dir, exist_ok=True)
-
+        
         label_categories = extractor.categories().get(AnnotationType.label,
             LabelCategories())
         get_label = lambda label_id: label_categories.items[label_id].name \
@@ -74,32 +74,21 @@ class TfDetectionApiConverter(Converter, CliPlugin):
         self._get_label = get_label
         self._get_label_id = map_label_id
 
-        subsets = extractor.subsets()
-        if len(subsets) == 0:
-            subsets = [ None ]
 
-        for subset_name in subsets:
-            if subset_name:
-                subset = extractor.get_subset(subset_name)
-            else:
-                subset_name = DEFAULT_SUBSET_NAME
-                subset = extractor
-
-            labelmap_path = osp.join(save_dir, DetectionApiPath.LABELMAP_FILE)
-            with codecs.open(labelmap_path, 'w', encoding='utf8') as f:
-                for label, idx in label_ids.items():
-                    f.write(
-                        'item {\n' +
-                        ('\tid: %s\n' % (idx)) +
-                        ("\tname: '%s'\n" % (label)) +
-                        '}\n\n'
-                    )
-
-            anno_path = osp.join(save_dir, '%s.tfrecord' % (subset_name))
-            with tf.io.TFRecordWriter(anno_path) as writer:
-                for item in subset:
-                    tf_example = self._make_tf_example(item)
-                    writer.write(tf_example.SerializeToString())
+        labelmap_path = osp.join(save_dir, DetectionApiPath.LABELMAP_FILE)
+        with codecs.open(labelmap_path, 'w', encoding='utf8') as f:
+            for label, idx in label_ids.items():
+                f.write(
+                    'item {\n' +
+                    ('\tid: %s\n' % (idx)) +
+                    ("\tname: '%s'\n" % (label)) +
+                    '}\n\n'
+                )
+        anno_path = osp.join(save_dir, '%s.tfrecord' % ("default"))
+        with tf.io.TFRecordWriter(anno_path) as writer:
+            for item in extractor:
+                tf_example = self._make_tf_example(item)
+                writer.write(tf_example.SerializeToString())
 
     @staticmethod
     def _find_instances(annotations):
