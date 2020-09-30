@@ -12,8 +12,11 @@ import Paragraph from 'antd/lib/typography/Paragraph';
 import Upload, { RcFile } from 'antd/lib/upload';
 import Empty from 'antd/lib/empty';
 import Tree, { AntTreeNode, TreeNodeNormal } from 'antd/lib/tree/Tree';
+import getCore from 'cvat-core-wrapper';
+const cvat = getCore();
 
 import consts from 'consts';
+import { Alert } from 'antd';
 
 export interface Files {
     local: File[];
@@ -22,9 +25,11 @@ export interface Files {
 }
 
 interface State {
+    loadedKeys: string[],
     files: Files;
     expandedKeys: string[];
     active: 'local' | 'share' | 'remote';
+    status?: any;
 }
 
 interface Props {
@@ -34,6 +39,8 @@ interface Props {
 }
 
 export default class FileManager extends React.PureComponent<Props, State> {
+    intervalID: any;
+
     public constructor(props: Props) {
         super(props);
 
@@ -43,6 +50,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 share: [],
                 remote: [],
             },
+            loadedKeys: [],
             expandedKeys: [],
             active: 'local',
         };
@@ -69,11 +77,21 @@ export default class FileManager extends React.PureComponent<Props, State> {
             const success = (): void => resolve();
             const failure = (): void => reject();
             onLoadData(key, success, failure);
+
+            // Only do this if mounted. Otherwise it's an error.
+            if(this.intervalID) {
+                const { loadedKeys } = this.state;
+                loadedKeys.push(key);
+                this.setState({
+                    loadedKeys
+                });
+            }
         },
     );
 
     public reset(): void {
         this.setState({
+            loadedKeys: [],
             expandedKeys: [],
             active: 'local',
             files: {
@@ -83,6 +101,51 @@ export default class FileManager extends React.PureComponent<Props, State> {
             },
         });
     }
+    
+    
+    getFileSyncerStatus(){
+        const baseUrl: string = cvat.config.backendAPI.slice(0, -7);
+        // replace url with baseURL in docker image
+        fetch(baseUrl + '/sys/filesyncer/api/status')
+            .then(response=>response.json())
+            .then(data=>{
+                
+                if(data && data.lastDownload && this.intervalID) {
+                    clearInterval(this.intervalID);
+                }
+
+                const { status } = this.state;
+                if(status && status.done) {
+                    return;
+                }
+
+                // If the first response is data is finished downloading, indicate it.
+                if(!status && data.lastDownload) {
+                    data = {doneOnFirstLoad: true};
+                }
+
+                this.setState({status:data});
+            });
+      
+    }
+
+    componentDidMount() {
+        this.getFileSyncerStatus();
+        this.intervalID = setInterval(()=>this.getFileSyncerStatus(), 5000);      
+    }
+
+    componentWillUnmount() {
+        /*
+            stop getData() from continuing to run even
+            after unmounting this component. Notice we are calling
+            'clearTimeout()` here rather than `clearInterval()` as
+            in the previous example.
+        */
+        if(this.intervalID) {
+            clearInterval(this.intervalID);
+        }
+    }
+
 
     private renderLocalSelector(): JSX.Element {
         const { files } = this.state;
@@ -127,6 +190,56 @@ export default class FileManager extends React.PureComponent<Props, State> {
         );
     }
 
+    private refreshFiles() {
+        if(this.intervalID) {
+            clearInterval(this.intervalID);
+        }
+
+        const { files } = this.state;
+
+        this.setState({
+            loadedKeys: [],
+            expandedKeys: [],
+            files: {
+                ...files,
+                share: [],
+            },
+            status: {done: true}
+        });  
+    }
+
+    
+    private renderFileSyncerDownloadedMsg(status: any){
+        if(!status || status.done || status.doneOnFirstLoad) {
+            return;
+        }
+
+        if(status.lastDownload){
+            return (
+                <span className="ant-alert ant-alert-info ant-alert-no-icon">
+                    <span>All files are synced from object storage.
+                        <a style={{marginLeft: '5px'}} onClick={() => this.refreshFiles()}>Refresh</a>
+                    </span>
+                </span>
+            )
+        } 
+        
+        if(status.error) {
+            const errorMessage = `Error downloading files. ${status.error}.`;
+            return (
+                <Alert 
+                    message={errorMessage}
+                    type="error"/>
+            )  
+        } else {
+            return (
+                <Alert 
+                    message="Syncing new files from object storage..."
+                    type="info"/>
+            )
+        }
+    }
+    
     private renderShareSelector(): JSX.Element {
         function renderTreeNodes(data: TreeNodeNormal[]): JSX.Element[] {
             return data.map((item: TreeNodeNormal) => {
@@ -152,12 +265,18 @@ export default class FileManager extends React.PureComponent<Props, State> {
         const {
             expandedKeys,
             files,
+            status,
+            loadedKeys
         } = this.state;
 
         return (
             <Tabs.TabPane key='share' tab='Connected file share'>
+                <div className="ant-text">
+                    {this.renderFileSyncerDownloadedMsg(status)}
+                </div>
                 { treeData[0].children && treeData[0].children.length
-                    ? (
+                    ? 
+                    (
                         <Tree
                             className='cvat-share-tree'
                             checkable
@@ -165,9 +284,10 @@ export default class FileManager extends React.PureComponent<Props, State> {
                             checkStrictly={false}
                             expandedKeys={expandedKeys}
                             checkedKeys={files.share}
-                            loadData={(node: AntTreeNode): Promise<void> => this.loadData(
-                                node.props.dataRef.key,
-                            )}
+                            loadedKeys={loadedKeys}
+                            loadData={(node: AntTreeNode): Promise<void> => 
+                                this.loadData(node.props.dataRef.key) 
+                            }
                             onExpand={(newExpandedKeys: string[]): void => {
                                 this.setState({
                                     expandedKeys: newExpandedKeys,
