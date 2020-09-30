@@ -42,8 +42,6 @@ function mapStateToProps(state: CombinedState): StateToProps {
     }
 
     const { root } = state.share;
-    console.log("root");
-    console.log(root);
     return {
         treeData: convert([root], ''),
     };
