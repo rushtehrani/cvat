@@ -70,7 +70,7 @@ def authenticate_cloud_storage():
     else:
         raise ValueError("Invalid cloud provider. Should be from ['s3', 'gcs', az']")
 
-    return data[cloud_provider]['bucket'], cloud_provider
+    return data[cloud_provider]['bucket'], cloud_provider, data[cloud_provider]['endpoint']
 
 @api_view(['POST'])
 def get_available_dump_formats(request):
@@ -190,7 +190,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
 
     # read artifactRepository to find out cloud provider and get access for upload
     
-    bucket_name, cloud_provider = authenticate_cloud_storage()
+    bucket_name, cloud_provider, endpoint = authenticate_cloud_storage()
     
     data = DatumaroTask.get_export_formats()
     formats = {d['name']:d['tag'] for d in data}
@@ -208,8 +208,10 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
             import boto3
             from botocore.exceptions import ClientError
 
-            #check if datasets folder exists on aws bucket
-            s3_client = boto3.client('s3')
+            if endpoint != 's3.amazonaws.com':
+                s3_client = boto3.client('s3', endpoint_url='https://'+endpoint)
+            else:
+                s3_client = boto3.client('s3')
           
             for root,dirs,files in os.walk(test_dir):
                 for file in files:
