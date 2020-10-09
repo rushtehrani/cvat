@@ -385,14 +385,14 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 
             if (sysNodePoolParam) {
                 let { node_pool } = await OnepanelApi.getNodePool();
-
+             
                 this.setState({
                     allSysNodePools: {
                         ...node_pool,
                         hint: sysNodePoolParam.hint,
                         display_name: sysNodePoolParam.display_name ? sysNodePoolParam.display_name : sysNodePoolParam.name
                     },
-                    defaultSysNodePoolVal: sysNodePoolParam.value,
+                    defaultSysNodePoolVal: node_pool.options[0].value,
                     selectedNodePool: node_pool.options.find((node: NodePoolParameters) => node.value === sysNodePoolParam.value)
                 });
             } else {
