@@ -393,7 +393,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                         display_name: sysNodePoolParam.display_name ? sysNodePoolParam.display_name : sysNodePoolParam.name
                     },
                     defaultSysNodePoolVal: node_pool.options[0].value,
-                    selectedNodePool: node_pool.options.find((node: NodePoolParameters) => node.value === sysNodePoolParam.value)
+                    selectedNodePool: node_pool.options[0]
                 });
             } else {
                 this.setState({
