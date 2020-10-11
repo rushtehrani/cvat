@@ -385,7 +385,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
 
             if (sysNodePoolParam) {
                 let { node_pool } = await OnepanelApi.getNodePool();
-             
                 this.setState({
                     allSysNodePools: {
                         ...node_pool,
