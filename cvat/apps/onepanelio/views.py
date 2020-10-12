@@ -209,7 +209,9 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
             from botocore.exceptions import ClientError
 
             if endpoint != 's3.amazonaws.com':
-                s3_client = boto3.client('s3', endpoint_url='https://'+endpoint)
+                if not endpoint.startswith('http'):
+                    endpoint = 'https://'+endpoint
+                s3_client = boto3.client('s3', endpoint_url=endpoint)
             else:
                 s3_client = boto3.client('s3')
           
