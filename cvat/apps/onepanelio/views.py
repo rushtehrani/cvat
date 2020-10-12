@@ -308,7 +308,7 @@ def create_annotation_model(request, pk):
                 params.append(Parameter(name='cvat-num-classes', value=str(num_classes)))
         
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
-        workflow_template_uid = form_data['workflow_template']) 
+        workflow_template_uid = form_data['workflow_template'], labels=[{'key':'workspace-uid','value':os.getenv('ONEPANEL_RESOURCE_UID')},{'key':'cvat-job-id','value':str(pk)}]) 
         try:
             api_response = api_instance.create_workflow_execution(namespace, body)
             return Response(data=api_response.to_dict()['metadata'], status=status.HTTP_200_OK)
