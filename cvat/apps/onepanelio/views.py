@@ -70,7 +70,7 @@ def authenticate_cloud_storage():
     else:
         raise ValueError("Invalid cloud provider. Should be from ['s3', 'gcs', az']")
 
-    return data[cloud_provider]['bucket'], cloud_provider
+    return data[cloud_provider]['bucket'], cloud_provider, data[cloud_provider]['endpoint']
 
 @api_view(['POST'])
 def get_available_dump_formats(request):
@@ -190,7 +190,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
 
     # read artifactRepository to find out cloud provider and get access for upload
     
-    bucket_name, cloud_provider = authenticate_cloud_storage()
+    bucket_name, cloud_provider, endpoint = authenticate_cloud_storage()
     
     data = DatumaroTask.get_export_formats()
     formats = {d['name']:d['tag'] for d in data}
@@ -208,8 +208,12 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
             import boto3
             from botocore.exceptions import ClientError
 
-            #check if datasets folder exists on aws bucket
-            s3_client = boto3.client('s3')
+            if endpoint != 's3.amazonaws.com':
+                if not endpoint.startswith('http'):
+                    endpoint = 'https://'+endpoint
+                s3_client = boto3.client('s3', endpoint_url=endpoint)
+            else:
+                s3_client = boto3.client('s3')
           
             for root,dirs,files in os.walk(test_dir):
                 for file in files:
@@ -304,7 +308,7 @@ def create_annotation_model(request, pk):
                 params.append(Parameter(name='cvat-num-classes', value=str(num_classes)))
         
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
-        workflow_template_uid = form_data['workflow_template']) 
+        workflow_template_uid = form_data['workflow_template'], labels=[{'key':'workspace-uid','value':os.getenv('ONEPANEL_RESOURCE_UID')},{'key':'cvat-job-id','value':str(pk)}]) 
         try:
             api_response = api_instance.create_workflow_execution(namespace, body)
             return Response(data=api_response.to_dict()['metadata'], status=status.HTTP_200_OK)
