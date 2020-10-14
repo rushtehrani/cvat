@@ -40,14 +40,28 @@ class OnepanelAuth:
                 print("Exception when calling AuthServiceApi->is_valid_token: %s\n" % e)
                 return False
 
-class AdminUser:
+
+class MirrorOnepanelUser:
+    """
+    We take the onepanel user credentials, and create the same user in CVAT.
+    This helps with auto-login and regular login.
+    """
     @staticmethod
-    def create_admin_user(request, username="admin", auth_token=None):
+    def create_user(request, username=None, auth_token=None):
+        """
+        :param request: The request from the login page
+        :param username: A string that will decide the name of the user
+        :param auth_token: A string that is used as the password for the user. This way, the login for Onepanel Web is
+        re-used in CVAT.
+        """
+        if username is None:
+            username = OnepanelAuth.get_auth_token(request)
         if auth_token is None:
             auth_token = OnepanelAuth.get_auth_token(request)
         if not User.objects.filter(username=username).exists():
             u = User(username=username)
             u.set_password(auth_token)
-            u.is_superuser = True
-            u.is_staff = True
+            if username is "admin":
+                u.is_superuser = True
+                u.is_staff = True
             u.save()

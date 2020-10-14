@@ -2,7 +2,7 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth import get_user_model
 
 from cvat.apps.onepanelio.middleware import OnepanelCoreTokenAuthentication
-from cvat.apps.onepanelio.models import AdminUser, OnepanelAuth
+from cvat.apps.onepanelio.models import MirrorOnepanelUser, OnepanelAuth
 
 UserModel = get_user_model()
 
@@ -18,8 +18,8 @@ class OnepanelIOBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         if username is None:
             username = kwargs.get(UserModel.USERNAME_FIELD)
-        # Ensure admin user exists
-        AdminUser.create_admin_user(request)
+        # Ensure user exists in cvat
+        MirrorOnepanelUser.create_user(request)
         try:
             # To allow auto-login for admin, check if the form is empty
             if username is None:
