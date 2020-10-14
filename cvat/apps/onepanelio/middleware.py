@@ -29,8 +29,20 @@ class OnepanelCoreTokenAuthentication(BaseAuthentication):
         # Django automatically upper-cases headers, converts "-" to "_", adds HTTP
         auth_header = request.META.get('HTTP_ONEPANEL_AUTH_TOKEN', b'')
         username_header = request.META.get('HTTP_ONEPANEL_USERNAME', b'')
-        # Missing headers, no validation attempt
+        # Missing headers, check cookie values
         if auth_header is b'' or username_header is b'':
+            username = OnepanelAuth.get_auth_username(request)
+            password = OnepanelAuth.get_auth_token(request)
+            if not OnepanelAuth.validate_token(password, username, api_url):
+                msg = _('onepanel-auth-token or onepanel-username is invalid.')
+                raise exceptions.AuthenticationFailed(msg)
+            else:
+                try:
+                    MirrorOnepanelUser.create_user(request, username=username, auth_token=password)
+                    user = UserModel._default_manager.get_by_natural_key(username)
+                except UserModel.DoesNotExist:
+                    UserModel().set_password(password)
+                return (user, None)
             return None
         elif isinstance(auth_header, text_type) and isinstance(username_header, text_type):
             auth_header = auth_header.encode(HTTP_HEADER_ENCODING)
