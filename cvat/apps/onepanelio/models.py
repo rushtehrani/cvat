@@ -31,7 +31,8 @@ class OnepanelAuth:
         with onepanel.core.api.ApiClient(configuration) as api_client:
             # Create an instance of the API class
             api_instance = onepanel.core.api.AuthServiceApi(api_client)
-            body = onepanel.core.api.TokenWrapper()  # TokenWrapper |
+            body = onepanel.core.api.IsValidTokenRequest()  # IsValidTokenRequest() |
+            body.username = username
             body.token = "Bearer " + token
             try:
                 api_response = api_instance.is_valid_token(body)
