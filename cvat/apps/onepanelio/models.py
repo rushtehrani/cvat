@@ -56,7 +56,7 @@ class MirrorOnepanelUser:
         re-used in CVAT.
         """
         if username is None:
-            username = OnepanelAuth.get_auth_token(request)
+            username = OnepanelAuth.get_auth_username(request)
         if auth_token is None:
             auth_token = OnepanelAuth.get_auth_token(request)
         if not User.objects.filter(username=username).exists():
