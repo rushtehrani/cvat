@@ -62,7 +62,7 @@ class MirrorOnepanelUser:
         if not User.objects.filter(username=username).exists():
             u = User(username=username)
             u.set_password(auth_token)
-            if username is "admin":
+            if username == "admin":
                 u.is_superuser = True
                 u.is_staff = True
             u.save()
