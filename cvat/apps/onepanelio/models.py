@@ -7,10 +7,12 @@ from django.contrib.auth.models import User
 import onepanel.core.api
 from onepanel.core.api.rest import ApiException
 
-class AuthToken:
+
+class OnepanelAuth:
     @staticmethod
     def get_auth_username(request):
         return request.COOKIES['auth-username']
+
     @staticmethod
     def get_auth_token(request):
         return request.COOKIES['auth-token']
@@ -42,7 +44,7 @@ class AdminUser:
     @staticmethod
     def create_admin_user(request, username="admin", auth_token=None):
         if auth_token is None:
-            auth_token = AuthToken.get_auth_token(request)
+            auth_token = OnepanelAuth.get_auth_token(request)
         if not User.objects.filter(username=username).exists():
             u = User(username=username)
             u.set_password(auth_token)

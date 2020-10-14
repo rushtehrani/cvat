@@ -11,7 +11,7 @@ from django.http import HttpResponse, HttpResponseNotFound
 from rest_framework.response import Response
 
 from cvat.apps.authentication.decorators import login_required
-from cvat.apps.onepanelio.models import AuthToken
+from cvat.apps.onepanelio.models import OnepanelAuth
 from cvat.apps.engine import annotation
 import cvat.apps.dataset_manager.task as DatumaroTask
 from cvat.apps.engine.models import Task as TaskModel
@@ -25,7 +25,7 @@ from rest_framework.decorators import api_view
 import yaml
 
 def onepanel_authorize(request):
-    auth_token = AuthToken.get_auth_token(request)
+    auth_token = OnepanelAuth.get_auth_token(request)
     # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),

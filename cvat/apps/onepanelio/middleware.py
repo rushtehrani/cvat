@@ -12,7 +12,7 @@ from rest_framework import HTTP_HEADER_ENCODING, exceptions
 from django.utils.six import text_type
 from django.utils.translation import ugettext_lazy as _
 
-from cvat.apps.onepanelio.models import AuthToken, AdminUser
+from cvat.apps.onepanelio.models import OnepanelAuth, AdminUser
 
 UserModel = get_user_model()
 
@@ -35,7 +35,7 @@ class OnepanelCoreTokenAuthentication(BaseAuthentication):
         elif isinstance(auth_header, text_type) and isinstance(username_header, text_type):
             auth_header = auth_header.encode(HTTP_HEADER_ENCODING)
             username_header = username_header.encode(HTTP_HEADER_ENCODING)
-            if not AuthToken.validate_token(auth_header.decode(), username_header.decode(), api_url):
+            if not OnepanelAuth.validate_token(auth_header.decode(), username_header.decode(), api_url):
                 msg = _('onepanel-auth-token or onepanel-username is invalid.')
                 raise exceptions.AuthenticationFailed(msg)
             else:
@@ -62,7 +62,7 @@ class AutomaticUserLoginMiddleware(MiddlewareMixin):
                 user = UserModel._default_manager.get_by_natural_key(username)
                 if user is None:
                     return HttpResponseForbidden()
-                current_cookie_token = AuthToken.get_auth_token(request)
+                current_cookie_token = OnepanelAuth.get_auth_token(request)
                 if not user.check_password(current_cookie_token):
                     return HttpResponseForbidden()
             if user is None:

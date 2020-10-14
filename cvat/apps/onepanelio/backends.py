@@ -2,7 +2,7 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth import get_user_model
 
 from cvat.apps.onepanelio.middleware import OnepanelCoreTokenAuthentication
-from cvat.apps.onepanelio.models import AdminUser, AuthToken
+from cvat.apps.onepanelio.models import AdminUser, OnepanelAuth
 
 UserModel = get_user_model()
 
@@ -26,7 +26,7 @@ class OnepanelIOBackend(ModelBackend):
                 username = "admin"
             user = UserModel._default_manager.get_by_natural_key(username)
             if password is None:
-                password = AuthToken.get_auth_token(request)
+                password = OnepanelAuth.get_auth_token(request)
         except UserModel.DoesNotExist:
             # Run the default password hasher once to reduce the timing
             # difference between an existing and a nonexistent user (#20760).
