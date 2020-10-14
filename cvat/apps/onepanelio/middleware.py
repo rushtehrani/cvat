@@ -56,17 +56,22 @@ class AutomaticUserLoginMiddleware(MiddlewareMixin):
         if not AutomaticUserLoginMiddleware._is_user_authenticated(request):
             user = auth.authenticate(request)
             if user is None:
-                # Load admin user, check if current cookie value matches
-                # admin in the database
-                username = "admin"
-                user = UserModel._default_manager.get_by_natural_key(username)
-                if user is None:
-                    return HttpResponseForbidden()
-                current_cookie_token = OnepanelAuth.get_auth_token(request)
-                if not user.check_password(current_cookie_token):
-                    return HttpResponseForbidden()
+                # Load user from cookie
+                username = OnepanelAuth.get_auth_username(request)
+                password = OnepanelAuth.get_auth_token(request)
+                try:
+                    user = UserModel._default_manager.get_by_natural_key(username)
+                    if user is None:
+                        return HttpResponseForbidden()
+                    if not user.check_password(password):
+                        return HttpResponseForbidden()
+                except UserModel.DoesNotExist:
+                    MirrorOnepanelUser.create_user(request, username=username, auth_token=password)
+                    user = UserModel._default_manager.get_by_natural_key(username)
+                    if user is None:
+                        return HttpResponseForbidden("Error with auto-login: Failed to create user.")
             if user is None:
-                return HttpResponseForbidden()
+                return HttpResponseForbidden("User not found.")
 
             request.user = user
             auth.login(request, user)

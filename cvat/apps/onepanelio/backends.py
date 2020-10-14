@@ -21,9 +21,11 @@ class OnepanelIOBackend(ModelBackend):
         # Ensure user exists in cvat
         MirrorOnepanelUser.create_user(request)
         try:
-            # To allow auto-login for admin, check if the form is empty
+            # To allow auto-login, we need to load and set the user.
+            # Check the cookie for the information.
+            # If the cookie is empty or invalid credentials, present the login page.
             if username is None:
-                username = "admin"
+                username = OnepanelAuth.get_auth_username(request)
             user = UserModel._default_manager.get_by_natural_key(username)
             if password is None:
                 password = OnepanelAuth.get_auth_token(request)
