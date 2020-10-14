@@ -9,6 +9,9 @@ from onepanel.core.api.rest import ApiException
 
 class AuthToken:
     @staticmethod
+    def get_auth_username(request):
+        return request.COOKIES['auth-username']
+    @staticmethod
     def get_auth_token(request):
         return request.COOKIES['auth-token']
 
