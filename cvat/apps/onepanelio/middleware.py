@@ -54,22 +54,7 @@ class OnepanelCoreTokenAuthentication(BaseAuthentication):
 class AutomaticUserLoginMiddleware(MiddlewareMixin):
     def process_view(self, request, view_func, view_args, view_kwargs):
         if not AutomaticUserLoginMiddleware._is_user_authenticated(request):
-            user = auth.authenticate(request)
-            if user is None:
-                # Load user from cookie
-                username = OnepanelAuth.get_auth_username(request)
-                password = OnepanelAuth.get_auth_token(request)
-                try:
-                    user = UserModel._default_manager.get_by_natural_key(username)
-                    if user is None:
-                        return HttpResponseForbidden()
-                    if not user.check_password(password):
-                        return HttpResponseForbidden()
-                except UserModel.DoesNotExist:
-                    MirrorOnepanelUser.create_user(request, username=username, auth_token=password)
-                    user = UserModel._default_manager.get_by_natural_key(username)
-                    if user is None:
-                        return HttpResponseForbidden("Error with auto-login: Failed to create user.")
+            user = auth.authenticate(request) #Go through all backends and try to authenticate user
             if user is None:
                 return HttpResponseForbidden("User not found.")
 
