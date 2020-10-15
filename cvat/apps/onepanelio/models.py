@@ -4,6 +4,7 @@
 from pprint import pprint
 
 from django.contrib.auth.models import User
+import hashlib
 import onepanel.core.api
 from onepanel.core.api.rest import ApiException
 
@@ -33,7 +34,7 @@ class OnepanelAuth:
             api_instance = onepanel.core.api.AuthServiceApi(api_client)
             body = onepanel.core.api.IsValidTokenRequest()  # IsValidTokenRequest() |
             body.username = username
-            body.token = token
+            body.token = hashlib.md5(token.encode('utf-8')).hexdigest()
             try:
                 api_response = api_instance.is_valid_token(body)
                 return True
