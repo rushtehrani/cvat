@@ -105,23 +105,24 @@ export default class FileManager extends React.PureComponent<Props, State> {
     
     getFileSyncerStatus(){
         const baseUrl: string = cvat.config.backendAPI.slice(0, -7);
+        const timestamp = +new Date();
         // replace url with baseURL in docker image
-        fetch(baseUrl + '/sys/filesyncer/api/status')
+        fetch(baseUrl + '/sys/filesyncer/api/status?tsp=' + timestamp)
             .then(response=>response.json())
             .then(data=>{
-                
-                if(data && data.lastDownload && this.intervalID) {
-                    clearInterval(this.intervalID);
-                }
-
                 const { status } = this.state;
-                if(status && status.done) {
-                    return;
-                }
 
-                // If the first response is data is finished downloading, indicate it.
-                if(!status && data.lastDownload) {
-                    data = {doneOnFirstLoad: true};
+                if(status) {
+                    data['wasDownloading'] = status['isDownloading'];
+                    data['wasUploading'] = status['isUploading'];
+
+                    if(data['wasDownloading'] && !data['isDownloading']) {
+                        data['refreshRequired'] = true;
+                    }
+
+                    if(status['refreshRequired']) {
+                        data['refreshRequired'] = true;
+                    }
                 }
 
                 this.setState({status:data});
@@ -191,10 +192,6 @@ export default class FileManager extends React.PureComponent<Props, State> {
     }
 
     private refreshFiles() {
-        if(this.intervalID) {
-            clearInterval(this.intervalID);
-        }
-
         const { files } = this.state;
 
         this.setState({
@@ -204,23 +201,23 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 ...files,
                 share: [],
             },
-            status: {done: true}
+            status: {}
         });  
     }
 
     
     private renderFileSyncerDownloadedMsg(status: any){
-        if(!status || status.done || status.doneOnFirstLoad) {
+        if(!status) {
             return;
         }
 
-        if(status.lastDownload){
+        if(status.refreshRequired){
             return (
-                <span className="ant-alert ant-alert-info ant-alert-no-icon">
+                <div className="ant-alert ant-alert-info ant-alert-no-icon">
                     <span>All files are synced from object storage.
                         <a style={{marginLeft: '5px'}} onClick={() => this.refreshFiles()}>Refresh</a>
                     </span>
-                </span>
+                </div>
             )
         } 
         
@@ -231,7 +228,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
                     message={errorMessage}
                     type="error"/>
             )  
-        } else {
+        } else if(status.isDownloading) {
             return (
                 <Alert 
                     message="Syncing new files from object storage..."
