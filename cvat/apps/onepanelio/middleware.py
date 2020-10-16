@@ -33,6 +33,14 @@ class OnepanelCoreTokenAuthentication(BaseAuthentication):
         if auth_header is b'' or username_header is b'':
             username = OnepanelAuth.get_auth_username(request)
             password = OnepanelAuth.get_auth_token(request)
+            # To reduce authentication executions, check if user is already there and authorized
+            try:
+                user = UserModel._default_manager.get_by_natural_key(username)
+                if user.check_password(password):
+                    return (user, None)
+            except UserModel.DoesNotExist:
+                user = None
+
             if not OnepanelAuth.validate_token(password, username, api_url):
                 msg = _('onepanel-auth-token or onepanel-username is invalid.')
                 raise exceptions.AuthenticationFailed(msg)
