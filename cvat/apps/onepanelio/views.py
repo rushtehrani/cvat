@@ -29,8 +29,8 @@ def onepanel_authorize(request):
     # auth_token = os.getenv('ONEPANEL_AUTHORIZATION')
     configuration = onepanel.core.api.Configuration(
         host = os.getenv('ONEPANEL_API_URL'),
-        api_key = { 'Bearer': auth_token})
-    configuration.api_key_prefix['Bearer'] = 'Bearer'
+        api_key = { 'authorization': auth_token})
+    configuration.api_key_prefix['authorization'] = 'Bearer'
     return configuration
 
 def authenticate_cloud_storage():
