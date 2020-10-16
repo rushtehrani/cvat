@@ -4,6 +4,7 @@
 from pprint import pprint
 
 from django.contrib.auth.models import User
+from django.contrib.auth.models import Group
 import hashlib
 import onepanel.core.api
 from onepanel.core.api.rest import ApiException
@@ -67,3 +68,7 @@ class MirrorOnepanelUser:
                 u.is_superuser = True
                 u.is_staff = True
             u.save()
+            if username != "admin":
+                annotator_group = Group.objects.get(name='annotator')
+                annotator_group.user_set.add(u)
+                annotator_group.save()
