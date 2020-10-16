@@ -105,8 +105,9 @@ export default class FileManager extends React.PureComponent<Props, State> {
     
     getFileSyncerStatus(){
         const baseUrl: string = cvat.config.backendAPI.slice(0, -7);
+        const timestamp = +new Date();
         // replace url with baseURL in docker image
-        fetch(baseUrl + '/sys/filesyncer/api/status')
+        fetch(baseUrl + '/sys/filesyncer/api/status?tsp=' + timestamp)
             .then(response=>response.json())
             .then(data=>{
                 const { status } = this.state;
@@ -212,11 +213,11 @@ export default class FileManager extends React.PureComponent<Props, State> {
 
         if(status.refreshRequired){
             return (
-                <span className="ant-alert ant-alert-info ant-alert-no-icon">
+                <div className="ant-alert ant-alert-info ant-alert-no-icon">
                     <span>All files are synced from object storage.
                         <a style={{marginLeft: '5px'}} onClick={() => this.refreshFiles()}>Refresh</a>
                     </span>
-                </span>
+                </div>
             )
         } 
         
