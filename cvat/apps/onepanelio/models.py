@@ -72,3 +72,6 @@ class MirrorOnepanelUser:
                 annotator_group = Group.objects.get(name='annotator')
                 annotator_group.user_set.add(u)
                 annotator_group.save()
+                user_group = Group.objects.get(name='user')
+                user_group.user_set.add(u)
+                user_group.save()
