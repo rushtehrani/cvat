@@ -206,7 +206,7 @@ function HeaderContainer(props: Props): JSX.Element {
                             (): void => {
                                 // false positive
                                 // eslint-disable-next-line security/detect-non-literal-fs-filename
-                                window.open(`${serverHost}/admin/`, "_self");
+                                window.open(`${serverHost}/admin/`, '_blank');
                             }
                         }
                     >
