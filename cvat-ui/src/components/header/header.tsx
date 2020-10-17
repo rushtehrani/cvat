@@ -198,6 +198,22 @@ function HeaderContainer(props: Props): JSX.Element {
                     )}
             </div>
             <div className='cvat-right-header'>
+                { username == 'admin' && (
+                    <Button
+                        className='cvat-header-button'
+                        type='link'
+                        onClick={
+                            (): void => {
+                                // false positive
+                                // eslint-disable-next-line security/detect-non-literal-fs-filename
+                                window.open(`${serverHost}/admin/`, '_blank');
+                            }
+                        }
+                    >
+                        <Icon type='gear' />
+                        <Text className='cvat-text-color'>Admin</Text>
+                    </Button>
+                )}
                 <Button
                     className='cvat-header-button'
                     type='link'

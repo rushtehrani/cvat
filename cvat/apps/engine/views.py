@@ -67,7 +67,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 # send requests with ?format=openapi suffix instead of ?scheme=openapi.
 # We map the required paramater explicitly and add it into query arguments
 # on the server side.
-from ..onepanelio.models import AuthToken
+from ..onepanelio.models import OnepanelAuth
 
 
 def wrap_swagger(view):
