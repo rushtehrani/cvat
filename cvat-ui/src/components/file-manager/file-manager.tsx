@@ -120,6 +120,18 @@ export default class FileManager extends React.PureComponent<Props, State> {
                         data['refreshRequired'] = true;
                     }
 
+                    if(!status['lastDownload'] && data['lastDownload']) {
+                        data['refreshRequired'] = true;
+                    } else if(status['lastDownload'] && data['lastDownload']) {
+                        const oldDownload = (new Date(status['lastDownload'])).getTime();
+                        const newDownload = (new Date(data['lastDownload'])).getTime();
+
+                        if( (newDownload - oldDownload) > 0) {
+                            data['refreshRequired'] = true;
+                            console.log('(new - old) > 0')
+                        }
+                    }
+
                     if(status['refreshRequired']) {
                         data['refreshRequired'] = true;
                     }
