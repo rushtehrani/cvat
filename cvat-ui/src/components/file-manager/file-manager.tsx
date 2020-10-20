@@ -128,7 +128,6 @@ export default class FileManager extends React.PureComponent<Props, State> {
 
                         if( (newDownload - oldDownload) > 0) {
                             data['refreshRequired'] = true;
-                            console.log('(new - old) > 0')
                         }
                     }
 
