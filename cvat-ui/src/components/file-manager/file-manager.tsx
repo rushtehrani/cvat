@@ -203,7 +203,9 @@ export default class FileManager extends React.PureComponent<Props, State> {
     }
 
     private refreshFiles() {
-        const { files } = this.state;
+        const { files, status } = this.state;
+
+        delete status['refreshRequired'];
 
         this.setState({
             loadedKeys: [],
@@ -212,7 +214,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 ...files,
                 share: [],
             },
-            status: {}
+            status: status
         });  
     }
 
