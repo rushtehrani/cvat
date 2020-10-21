@@ -272,9 +272,9 @@ def create_annotation_model(request, pk):
     # if 'cvat-annotation-path' in form_data['parameters']:
     annotation_path = 'annotation-dump' + '/' + db_task.name + '/' + stamp + '/'
     if 'cvat-model' in all_parameter_names:
-        output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + form_data['parameters']['cvat-model'] + '/'
+        output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + form_data['parameters']['cvat-model']
     else:
-        output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/'
+        output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template']
         
     if 'cvat-annotation-path' in all_parameter_names:
         dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
