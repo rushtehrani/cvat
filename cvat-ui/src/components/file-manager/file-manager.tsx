@@ -120,6 +120,17 @@ export default class FileManager extends React.PureComponent<Props, State> {
                         data['refreshRequired'] = true;
                     }
 
+                    if(!status['lastDownload'] && data['lastDownload']) {
+                        data['refreshRequired'] = true;
+                    } else if(status['lastDownload'] && data['lastDownload']) {
+                        const oldDownload = (new Date(status['lastDownload'])).getTime();
+                        const newDownload = (new Date(data['lastDownload'])).getTime();
+
+                        if( (newDownload - oldDownload) > 0) {
+                            data['refreshRequired'] = true;
+                        }
+                    }
+
                     if(status['refreshRequired']) {
                         data['refreshRequired'] = true;
                     }
@@ -192,7 +203,9 @@ export default class FileManager extends React.PureComponent<Props, State> {
     }
 
     private refreshFiles() {
-        const { files } = this.state;
+        const { files, status } = this.state;
+
+        delete status['refreshRequired'];
 
         this.setState({
             loadedKeys: [],
@@ -201,7 +214,7 @@ export default class FileManager extends React.PureComponent<Props, State> {
                 ...files,
                 share: [],
             },
-            status: {}
+            status: status
         });  
     }
 
