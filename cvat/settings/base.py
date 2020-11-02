@@ -346,6 +346,7 @@ if data_dir_env is None:
     DATA_ROOT = os.path.join(BASE_DIR, 'data')
 else:
     DATA_ROOT = data_dir_env
+    MEDIA_ROOT = data_dir_env
 os.makedirs(DATA_ROOT, exist_ok=True)
 
 media_data_root_env = os.environ.get("CVAT_MEDIA_DATA_DIR", None)
