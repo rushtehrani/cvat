@@ -36,7 +36,12 @@ try:
 except ImportError:
 
     from django.utils.crypto import get_random_string
-    keys_dir = os.path.join(BASE_DIR, 'keys')
+
+    keys_dir_env = os.getenv("CVAT_KEYS_DIR", None)
+    if keys_dir_env is None:
+        keys_dir = os.path.join(BASE_DIR, "keys")
+    else:
+        keys_dir = keys_dir_env
     if not os.path.isdir(keys_dir):
         os.mkdir(keys_dir)
     with open(os.path.join(keys_dir, 'secret_key.py'), 'w') as f:
@@ -328,28 +333,63 @@ CSRF_COOKIE_NAME = "csrftoken"
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+static_dir_env = os.environ.get("CVAT_STATIC_DIR", None)
+if static_dir_env is None:
+    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+else:
+    STATIC_ROOT = static_dir_env
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
-DATA_ROOT = os.path.join(BASE_DIR, 'data')
+
+data_dir_env = os.environ.get("CVAT_DATA_DIR", None)
+if data_dir_env is None:
+    DATA_ROOT = os.path.join(BASE_DIR, 'data')
+else:
+    DATA_ROOT = data_dir_env
+    MEDIA_ROOT = data_dir_env
 os.makedirs(DATA_ROOT, exist_ok=True)
 
-MEDIA_DATA_ROOT = os.path.join(DATA_ROOT, 'data')
+media_data_root_env = os.environ.get("CVAT_MEDIA_DATA_DIR", None)
+if media_data_root_env is None:
+    MEDIA_DATA_ROOT = os.path.join(DATA_ROOT, 'data')
+else:
+    MEDIA_DATA_ROOT = media_data_root_env
 os.makedirs(MEDIA_DATA_ROOT, exist_ok=True)
 
-TASKS_ROOT = os.path.join(DATA_ROOT, 'tasks')
+tasks_root_env = os.environ.get("CVAT_TASKS_DIR", None)
+if tasks_root_env is None:
+    TASKS_ROOT = os.path.join(DATA_ROOT, 'tasks')
+else:
+    TASKS_ROOT = tasks_root_env
 os.makedirs(TASKS_ROOT, exist_ok=True)
 
-SHARE_ROOT = os.path.join(BASE_DIR, 'share')
+share_root_env = os.getenv("CVAT_SHARE_DIR", None)
+if share_root_env is None:
+    SHARE_ROOT = os.path.join(BASE_DIR,'share')
+else:
+    SHARE_ROOT = share_root_env
 os.makedirs(SHARE_ROOT, exist_ok=True)
 
-MODELS_ROOT = os.path.join(DATA_ROOT, 'models')
+models_dir_env = os.environ.get("CVAT_MODELS_DIR", None)
+if models_dir_env is None:
+    MODELS_ROOT = os.path.join(DATA_ROOT, 'models')
+else:
+    MODELS_ROOT = models_dir_env
+
 os.makedirs(MODELS_ROOT, exist_ok=True)
 
-LOGS_ROOT = os.path.join(BASE_DIR, 'logs')
+logs_root_env = os.environ.get("CVAT_LOGS_DIR", None)
+if logs_root_env is None:
+    LOGS_ROOT = os.path.join(BASE_DIR, 'logs')
+else:
+    LOGS_ROOT = logs_root_env
 os.makedirs(MODELS_ROOT, exist_ok=True)
 
-MIGRATIONS_LOGS_ROOT = os.path.join(LOGS_ROOT, 'migrations')
+migrations_logs_root_env = os.environ.get("CVAT_MIGRATIONS_DIR", None)
+if migrations_logs_root_env is None:
+    MIGRATIONS_LOGS_ROOT = os.path.join(LOGS_ROOT, 'migrations')
+else:
+    MIGRATIONS_LOGS_ROOT = migrations_logs_root_env
 os.makedirs(MIGRATIONS_LOGS_ROOT, exist_ok=True)
 
 LOGGING = {
@@ -415,5 +455,9 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = None   # this django check disabled
 LOCAL_LOAD_MAX_FILES_COUNT = 500
 LOCAL_LOAD_MAX_FILES_SIZE = 512 * 1024 * 1024  # 512 MB
 
-DATUMARO_PATH = os.path.join(BASE_DIR, 'datumaro')
+datumaro_path_env = os.environ.get("CVAT_DATUMARO_DIR", None)
+if datumaro_path_env is None:
+    DATUMARO_PATH = os.path.join(BASE_DIR, 'datumaro')
+else:
+    DATUMARO_PATH = datumaro_path_env
 sys.path.append(DATUMARO_PATH)
