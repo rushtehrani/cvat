@@ -345,6 +345,11 @@ EXPORT_FORMATS = [
         'tag': 'cvat_label_me',
         'is_default': False,
     },
+    {
+        'name': 'CVAT XML',
+        'tag': 'cvat',
+        'is_default': False,
+    },
 ]
 
 def get_export_formats():
@@ -354,7 +359,6 @@ def get_export_formats():
 
     available_formats = set(converters.items)
     available_formats.add(EXPORT_FORMAT_DATUMARO_PROJECT)
-
     public_formats = []
     for fmt in EXPORT_FORMATS:
         if fmt['tag'] in available_formats:
