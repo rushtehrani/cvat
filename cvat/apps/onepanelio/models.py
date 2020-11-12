@@ -33,11 +33,11 @@ class OnepanelAuth:
         with onepanel.core.api.ApiClient(configuration) as api_client:
             # Create an instance of the API class
             api_instance = onepanel.core.api.AuthServiceApi(api_client)
-            body = onepanel.core.api.IsValidTokenRequest()  # IsValidTokenRequest() |
+            body = onepanel.core.api.GetAccessTokenRequest()  # IsValidTokenRequest() |
             body.username = username
             body.token = hashlib.md5(token.encode('utf-8')).hexdigest()
             try:
-                api_response = api_instance.is_valid_token(body)
+                api_response = api_instance.get_access_token(body)
                 return True
             except ApiException as e:
                 print("Exception when calling AuthServiceApi->is_valid_token: %s\n" % e)
