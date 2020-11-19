@@ -337,73 +337,41 @@ CSRF_COOKIE_NAME = "csrftoken"
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 
 STATIC_URL = '/static/'
-static_dir_env = os.environ.get("CVAT_STATIC_DIR", None)
-if static_dir_env is None:
-    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-else:
-    STATIC_ROOT = static_dir_env
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = os.environ.get("CVAT_STATIC_DIR", STATIC_ROOT)
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
-
-data_dir_env = os.environ.get("CVAT_DATA_DIR", None)
-if data_dir_env is None:
-    DATA_ROOT = os.path.join(BASE_DIR, 'data')
-else:
-    DATA_ROOT = data_dir_env
-    MEDIA_ROOT = data_dir_env
+DATA_ROOT = os.path.join(BASE_DIR, 'data')
+DATA_ROOT = os.environ.get("CVAT_DATA_DIR", DATA_ROOT)
+MEDIA_ROOT = DATA_ROOT
 os.makedirs(DATA_ROOT, exist_ok=True)
 
-media_data_root_env = os.environ.get("CVAT_MEDIA_DATA_DIR", None)
-if media_data_root_env is None:
-    MEDIA_DATA_ROOT = os.path.join(DATA_ROOT, 'data')
-else:
-    MEDIA_DATA_ROOT = media_data_root_env
+MEDIA_DATA_ROOT = os.path.join(DATA_ROOT, 'data')
+MEDIA_DATA_ROOT = os.environ.get("CVAT_MEDIA_DATA_DIR", MEDIA_DATA_ROOT)
 os.makedirs(MEDIA_DATA_ROOT, exist_ok=True)
 
-tasks_root_env = os.environ.get("CVAT_TASKS_DIR", None)
-if tasks_root_env is None:
-    TASKS_ROOT = os.path.join(DATA_ROOT, 'tasks')
-else:
-    TASKS_ROOT = tasks_root_env
 TASKS_ROOT = os.path.join(DATA_ROOT, 'tasks')
+TASKS_ROOT = os.environ.get("CVAT_TASKS_DIR", TASKS_ROOT)
 os.makedirs(TASKS_ROOT, exist_ok=True)
 
-cache_root_env = os.environ.get("CVAT_CACHE_DIR", None)
-if cache_root_env is None:
-    CACHE_ROOT = os.path.join(DATA_ROOT, 'cache')
-else:
-    CACHE_ROOT = cache_root_env
 CACHE_ROOT = os.path.join(DATA_ROOT, 'cache')
+CACHE_ROOT = os.environ.get("CVAT_CACHE_DIR", CACHE_ROOT)
 os.makedirs(CACHE_ROOT, exist_ok=True)
 
-models_dir_env = os.environ.get("CVAT_MODELS_DIR", None)
-if models_dir_env is None:
-    MODELS_ROOT = os.path.join(DATA_ROOT, 'models')
-else:
-    MODELS_ROOT = models_dir_env
 MODELS_ROOT = os.path.join(DATA_ROOT, 'models')
+MODELS_ROOT = os.environ.get("CVAT_MODELS_DIR", MODELS_ROOT)
 os.makedirs(MODELS_ROOT, exist_ok=True)
 
-share_dir_env = os.environ.get("CVAT_SHARE_DIR", None)
-if share_dir_env is None:
-    SHARE_ROOT = os.path.join(BASE_DIR, 'share')
-else:
-    SHARE_ROOT = share_dir_env
 SHARE_ROOT = os.path.join(BASE_DIR, 'share')
+SHARE_ROOT = os.environ.get("CVAT_SHARE_DIR", SHARE_ROOT)
 os.makedirs(SHARE_ROOT, exist_ok=True)
 
-logs_root_env = os.environ.get("CVAT_LOGS_DIR", None)
-if logs_root_env is None:
-    LOGS_ROOT = os.path.join(BASE_DIR, 'logs')
-else:
-    LOGS_ROOT = logs_root_env
+LOGS_ROOT = os.path.join(BASE_DIR, 'logs')
+LOGS_ROOT = os.environ.get("CVAT_LOGS_DIR", LOGS_ROOT)
 os.makedirs(MODELS_ROOT, exist_ok=True)
 
-migrations_logs_root_env = os.environ.get("CVAT_MIGRATIONS_DIR", None)
-if migrations_logs_root_env is None:
-    MIGRATIONS_LOGS_ROOT = os.path.join(LOGS_ROOT, 'migrations')
-else:
-    MIGRATIONS_LOGS_ROOT = migrations_logs_root_env
+MIGRATIONS_LOGS_ROOT = os.path.join(LOGS_ROOT, 'migrations')
+MIGRATIONS_LOGS_ROOT = os.environ.get("CVAT_MIGRATIONS_DIR", MIGRATIONS_LOGS_ROOT)
 os.makedirs(MIGRATIONS_LOGS_ROOT, exist_ok=True)
 
 LOGGING = {
