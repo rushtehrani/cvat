@@ -1,4 +1,4 @@
-# Copyright (C) 2019 Intel Corporation
+# Copyright (C) 2019-2020 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 
@@ -7,13 +7,14 @@ import tempfile
 import shutil
 import zipfile
 import io
+import itertools
 from abc import ABC, abstractmethod
 
 import av
-import av.datasets
 import numpy as np
 from pyunpack import Archive
 from PIL import Image, ImageFile
+from cvat.apps.engine.utils import rotate_image
 
 # fixes: "OSError:broken data stream" when executing line 72 while loading images downloaded from the web
 # see: https://stackoverflow.com/questions/42462431/oserror-broken-data-stream-when-reading-image-file
@@ -66,8 +67,15 @@ class IMediaReader(ABC):
         return preview.convert('RGB')
 
     @abstractmethod
-    def get_image_size(self):
+    def get_image_size(self, i):
         pass
+
+    def __len__(self):
+        return len(self.frame_range)
+
+    @property
+    def frame_range(self):
+        return range(self._start, self._stop, self._step)
 
 class ImageListReader(IMediaReader):
     def __init__(self, source_path, step=1, start=0, stop=None):
@@ -105,8 +113,8 @@ class ImageListReader(IMediaReader):
         fp = open(self._source_path[0], "rb")
         return self._get_preview(fp)
 
-    def get_image_size(self):
-        img = Image.open(self._source_path[0])
+    def get_image_size(self, i):
+        img = Image.open(self._source_path[i])
         return img.width, img.height
 
 class DirectoryReader(ImageListReader):
@@ -126,50 +134,46 @@ class DirectoryReader(ImageListReader):
 
 class ArchiveReader(DirectoryReader):
     def __init__(self, source_path, step=1, start=0, stop=None):
-        self._tmp_dir = create_tmp_dir()
         self._archive_source = source_path[0]
-        Archive(self._archive_source).extractall(self._tmp_dir)
+        Archive(self._archive_source).extractall(os.path.dirname(source_path[0]))
+        os.remove(self._archive_source)
         super().__init__(
-            source_path=[self._tmp_dir],
+            source_path=[os.path.dirname(source_path[0])],
             step=step,
             start=start,
             stop=stop,
         )
 
-    def __del__(self):
-        delete_tmp_dir(self._tmp_dir)
-
-    def get_path(self, i):
-        base_dir = os.path.dirname(self._archive_source)
-        return os.path.join(base_dir, os.path.relpath(self._source_path[i], self._tmp_dir))
-
-class PdfReader(DirectoryReader):
+class PdfReader(ImageListReader):
     def __init__(self, source_path, step=1, start=0, stop=None):
         if not source_path:
             raise Exception('No PDF found')
 
-        from pdf2image import convert_from_path
         self._pdf_source = source_path[0]
-        self._tmp_dir = create_tmp_dir()
-        file_ = convert_from_path(self._pdf_source)
-        basename = os.path.splitext(os.path.basename(self._pdf_source))[0]
-        for page_num, page in enumerate(file_):
-            output = os.path.join(self._tmp_dir, '{}{:09d}.jpeg'.format(basename, page_num))
-            page.save(output, 'JPEG')
+
+        _basename = os.path.splitext(os.path.basename(self._pdf_source))[0]
+        _counter = itertools.count()
+        def _make_name():
+            for page_num in _counter:
+                yield '{}{:09d}.jpeg'.format(_basename, page_num)
+
+        from pdf2image import convert_from_path
+        self._tmp_dir = os.path.dirname(source_path[0])
+        os.makedirs(self._tmp_dir, exist_ok=True)
+
+        # Avoid OOM: https://github.com/openvinotoolkit/cvat/issues/940
+        paths = convert_from_path(self._pdf_source,
+            last_page=stop, paths_only=True,
+            output_folder=self._tmp_dir, fmt="jpeg", output_file=_make_name())
+
+        os.remove(source_path[0])
 
         super().__init__(
-            source_path=[self._tmp_dir],
+            source_path=paths,
             step=step,
             start=start,
             stop=stop,
         )
-
-    def __del__(self):
-        delete_tmp_dir(self._tmp_dir)
-
-    def get_path(self, i):
-        base_dir = os.path.dirname(self._pdf_source)
-        return os.path.join(base_dir, os.path.relpath(self._source_path[i], self._tmp_dir))
 
 class ZipReader(ImageListReader):
     def __init__(self, source_path, step=1, start=0, stop=None):
@@ -184,15 +188,22 @@ class ZipReader(ImageListReader):
         io_image = io.BytesIO(self._zip_source.read(self._source_path[0]))
         return self._get_preview(io_image)
 
-    def get_image_size(self):
-        img = Image.open(io.BytesIO(self._zip_source.read(self._source_path[0])))
+    def get_image_size(self, i):
+        img = Image.open(io.BytesIO(self._zip_source.read(self._source_path[i])))
         return img.width, img.height
 
     def get_image(self, i):
         return io.BytesIO(self._zip_source.read(self._source_path[i]))
 
     def get_path(self, i):
-        return os.path.join(os.path.dirname(self._zip_source.filename), self._source_path[i])
+        if  self._zip_source.filename:
+            return os.path.join(os.path.dirname(self._zip_source.filename), self._source_path[i])
+        else: # necessary for mime_type definition
+            return self._source_path[i]
+
+    def extract(self):
+        self._zip_source.extractall(os.path.dirname(self._zip_source.filename))
+        os.remove(self._zip_source.filename)
 
 class VideoReader(IMediaReader):
     def __init__(self, source_path, step=1, start=0, stop=None):
@@ -218,6 +229,16 @@ class VideoReader(IMediaReader):
                 for image in packet.decode():
                     frame_num += 1
                     if self._has_frame(frame_num - 1):
+                        if packet.stream.metadata.get('rotate'):
+                            old_image = image
+                            image = av.VideoFrame().from_ndarray(
+                                rotate_image(
+                                    image.to_ndarray(format='bgr24'),
+                                    360 - int(container.streams.video[0].metadata.get('rotate'))
+                                ),
+                                format ='bgr24'
+                            )
+                            image.pts = old_image.pts
                         yield (image, self._source_path[0], image.pts)
 
     def __iter__(self):
@@ -234,15 +255,25 @@ class VideoReader(IMediaReader):
         return pos / stream.duration if stream.duration else None
 
     def _get_av_container(self):
-        return av.open(av.datasets.curated(self._source_path[0]))
+        if isinstance(self._source_path[0], io.BytesIO):
+            self._source_path[0].seek(0) # required for re-reading
+        return av.open(self._source_path[0])
 
     def get_preview(self):
         container = self._get_av_container()
         stream = container.streams.video[0]
         preview = next(container.decode(stream))
-        return self._get_preview(preview.to_image())
+        return self._get_preview(preview.to_image() if not stream.metadata.get('rotate') \
+            else av.VideoFrame().from_ndarray(
+                rotate_image(
+                    preview.to_ndarray(format='bgr24'),
+                    360 - int(container.streams.video[0].metadata.get('rotate'))
+                ),
+                format ='bgr24'
+            ).to_image()
+        )
 
-    def get_image_size(self):
+    def get_image_size(self, i):
         image = (next(iter(self)))[0]
         return image.width, image.height
 
@@ -304,10 +335,16 @@ class Mpeg4ChunkWriter(IChunkWriter):
         self._output_fps = 25
 
     @staticmethod
-    def _create_av_container(path, w, h, rate, pix_format, options):
-            container = av.open(path, 'w')
+    def _create_av_container(path, w, h, rate, options, f='mp4'):
+            # x264 requires width and height must be divisible by 2 for yuv420p
+            if h % 2:
+                h += 1
+            if w % 2:
+                w += 1
+
+            container = av.open(path, 'w',format=f)
             video_stream = container.add_stream('libx264', rate=rate)
-            video_stream.pix_fmt = pix_format
+            video_stream.pix_fmt = "yuv420p"
             video_stream.width = w
             video_stream.height = h
             video_stream.options = options
@@ -320,14 +357,12 @@ class Mpeg4ChunkWriter(IChunkWriter):
 
         input_w = images[0][0].width
         input_h = images[0][0].height
-        pix_format = images[0][0].format.name
 
         output_container, output_v_stream = self._create_av_container(
             path=chunk_path,
             w=input_w,
             h=input_h,
             rate=self._output_fps,
-            pix_format=pix_format,
             options={
                 "crf": str(self._image_quality),
                 "preset": "ultrafast",
@@ -373,18 +408,11 @@ class Mpeg4CompressedChunkWriter(Mpeg4ChunkWriter):
         output_h = input_h // downscale_factor
         output_w = input_w // downscale_factor
 
-        # width and height must be divisible by 2
-        if output_h % 2:
-            output_h += 1
-        if output_w % 2:
-            output_w +=1
-
         output_container, output_v_stream = self._create_av_container(
             path=chunk_path,
             w=output_w,
             h=output_h,
             rate=self._output_fps,
-            pix_format='yuv420p',
             options={
                 'profile': 'baseline',
                 'coder': '0',

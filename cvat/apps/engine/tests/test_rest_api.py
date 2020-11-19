@@ -1,28 +1,36 @@
-# Copyright (C) 2018 Intel Corporation
+# Copyright (C) 2020 Intel Corporation
 #
 # SPDX-License-Identifier: MIT
 
-import os
-import shutil
-from PIL import Image
-from io import BytesIO
-from enum import Enum
-import random
-from rest_framework.test import APITestCase, APIClient
-from rest_framework import status
-from django.conf import settings
-from django.contrib.auth.models import User, Group
-from cvat.apps.engine.models import (Task, Segment, Job, StatusChoice,
-    AttributeType, Project, Data)
-from unittest import mock
+
 import io
-import xml.etree.ElementTree as ET
-from collections import defaultdict
-import zipfile
-from pycocotools import coco as coco_loader
+import os
+import os.path as osp
+import random
+import shutil
 import tempfile
+import xml.etree.ElementTree as ET
+import zipfile
+from collections import defaultdict
+from enum import Enum
+from glob import glob
+from io import BytesIO
+from unittest import mock
+
 import av
 import numpy as np
+from pdf2image import convert_from_bytes
+from django.conf import settings
+from django.contrib.auth.models import Group, User
+from django.http import HttpResponse
+from PIL import Image
+from pycocotools import coco as coco_loader
+from rest_framework import status
+from rest_framework.test import APIClient, APITestCase
+
+from cvat.apps.engine.models import (AttributeType, Data, Job, Project,
+    Segment, StatusChoice, Task, StorageMethodChoice)
+from cvat.apps.engine.prepare import prepare_meta, prepare_meta_for_upload
 
 def create_db_users(cls):
     (group_admin, _) = Group.objects.get_or_create(name="admin")
@@ -95,7 +103,6 @@ def create_dummy_db_tasks(obj, project=None):
         "assignee": obj.assignee,
         "overlap": 0,
         "segment_size": 100,
-        "z_order": False,
         "image_quality": 75,
         "size": 100,
         "project": project
@@ -108,7 +115,6 @@ def create_dummy_db_tasks(obj, project=None):
         "owner": obj.user,
         "overlap": 0,
         "segment_size": 100,
-        "z_order": True,
         "image_quality": 50,
         "size": 200,
         "project": project
@@ -122,7 +128,6 @@ def create_dummy_db_tasks(obj, project=None):
         "assignee": obj.assignee,
         "overlap": 0,
         "segment_size": 100,
-        "z_order": False,
         "image_quality": 75,
         "size": 100,
         "project": project
@@ -135,7 +140,6 @@ def create_dummy_db_tasks(obj, project=None):
         "owner": obj.admin,
         "overlap": 0,
         "segment_size": 50,
-        "z_order": False,
         "image_quality": 95,
         "size": 50,
         "project": project
@@ -293,47 +297,47 @@ class JobUpdateAPITestCase(APITestCase):
         self.assertEqual(response.data["id"], self.job.id)
         self.assertEqual(response.data["status"], data.get('status', self.job.status))
         assignee = self.job.assignee.id if self.job.assignee else None
-        self.assertEqual(response.data["assignee"], data.get('assignee', assignee))
+        self.assertEqual(response.data["assignee"]["id"], data.get('assignee_id', assignee))
         self.assertEqual(response.data["start_frame"], self.job.segment.start_frame)
         self.assertEqual(response.data["stop_frame"], self.job.segment.stop_frame)
 
     def test_api_v1_jobs_id_admin(self):
-        data = {"status": StatusChoice.COMPLETED, "assignee": self.owner.id}
+        data = {"status": StatusChoice.COMPLETED, "assignee_id": self.owner.id}
         response = self._run_api_v1_jobs_id(self.job.id, self.admin, data)
         self._check_request(response, data)
         response = self._run_api_v1_jobs_id(self.job.id + 10, self.admin, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_api_v1_jobs_id_owner(self):
-        data = {"status": StatusChoice.VALIDATION, "assignee": self.annotator.id}
+        data = {"status": StatusChoice.VALIDATION, "assignee_id": self.annotator.id}
         response = self._run_api_v1_jobs_id(self.job.id, self.owner, data)
         self._check_request(response, data)
         response = self._run_api_v1_jobs_id(self.job.id + 10, self.owner, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_api_v1_jobs_id_annotator(self):
-        data = {"status": StatusChoice.ANNOTATION, "assignee": self.user.id}
+        data = {"status": StatusChoice.ANNOTATION, "assignee_id": self.user.id}
         response = self._run_api_v1_jobs_id(self.job.id, self.annotator, data)
         self._check_request(response, data)
         response = self._run_api_v1_jobs_id(self.job.id + 10, self.annotator, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_api_v1_jobs_id_observer(self):
-        data = {"status": StatusChoice.ANNOTATION, "assignee": self.admin.id}
+        data = {"status": StatusChoice.ANNOTATION, "assignee_id": self.admin.id}
         response = self._run_api_v1_jobs_id(self.job.id, self.observer, data)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         response = self._run_api_v1_jobs_id(self.job.id + 10, self.observer, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_api_v1_jobs_id_user(self):
-        data = {"status": StatusChoice.ANNOTATION, "assignee": self.user.id}
+        data = {"status": StatusChoice.ANNOTATION, "assignee_id": self.user.id}
         response = self._run_api_v1_jobs_id(self.job.id, self.user, data)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         response = self._run_api_v1_jobs_id(self.job.id + 10, self.user, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_api_v1_jobs_id_no_auth(self):
-        data = {"status": StatusChoice.ANNOTATION, "assignee": self.user.id}
+        data = {"status": StatusChoice.ANNOTATION, "assignee_id": self.user.id}
         response = self._run_api_v1_jobs_id(self.job.id, None, data)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         response = self._run_api_v1_jobs_id(self.job.id + 10, None, data)
@@ -352,7 +356,7 @@ class JobPartialUpdateAPITestCase(JobUpdateAPITestCase):
         self._check_request(response, data)
 
     def test_api_v1_jobs_id_admin_partial(self):
-        data = {"assignee": self.user.id}
+        data = {"assignee_id": self.user.id}
         response = self._run_api_v1_jobs_id(self.job.id, self.owner, data)
         self._check_request(response, data)
 
@@ -494,8 +498,8 @@ class UserAPITestCase(APITestCase):
         self.assertEqual(data["username"], user.username)
         self.assertEqual(data["first_name"], user.first_name)
         self.assertEqual(data["last_name"], user.last_name)
-        self.assertEqual(data["email"], user.email)
         extra_check = self.assertIn if is_full else self.assertNotIn
+        extra_check("email", data)
         extra_check("groups", data)
         extra_check("is_staff", data)
         extra_check("is_superuser", data)
@@ -1069,12 +1073,13 @@ class TaskGetAPITestCase(APITestCase):
         self.assertEqual(response.data["size"], db_task.data.size)
         self.assertEqual(response.data["mode"], db_task.mode)
         owner = db_task.owner.id if db_task.owner else None
-        self.assertEqual(response.data["owner"], owner)
+        response_owner = response.data["owner"]["id"] if response.data["owner"] else None
+        self.assertEqual(response_owner, owner)
         assignee = db_task.assignee.id if db_task.assignee else None
-        self.assertEqual(response.data["assignee"], assignee)
+        response_assignee = response.data["assignee"]["id"] if response.data["assignee"] else None
+        self.assertEqual(response_assignee, assignee)
         self.assertEqual(response.data["overlap"], db_task.overlap)
         self.assertEqual(response.data["segment_size"], db_task.segment_size)
-        self.assertEqual(response.data["z_order"], db_task.z_order)
         self.assertEqual(response.data["image_quality"], db_task.data.image_quality)
         self.assertEqual(response.data["status"], db_task.status)
         self.assertListEqual(
@@ -1141,7 +1146,18 @@ class TaskDeleteAPITestCase(APITestCase):
     def test_api_v1_tasks_id_no_auth(self):
         self._check_api_v1_tasks_id(None)
 
+    def test_api_v1_tasks_delete_task_data_after_delete_task(self):
+        for task in self.tasks:
+            task_dir = task.get_task_dirname()
+            self.assertTrue(os.path.exists(task_dir))
+        self._check_api_v1_tasks_id(self.admin)
+        for task in self.tasks:
+            task_dir = task.get_task_dirname()
+            self.assertFalse(os.path.exists(task_dir))
+
+
 class TaskUpdateAPITestCase(APITestCase):
+
     def setUp(self):
         self.client = APIClient()
 
@@ -1165,15 +1181,15 @@ class TaskUpdateAPITestCase(APITestCase):
         mode = data.get("mode", db_task.mode)
         self.assertEqual(response.data["mode"], mode)
         owner = db_task.owner.id if db_task.owner else None
-        owner = data.get("owner", owner)
-        self.assertEqual(response.data["owner"], owner)
+        owner = data.get("owner_id", owner)
+        response_owner = response.data["owner"]["id"] if response.data["owner"] else None
+        self.assertEqual(response_owner, owner)
         assignee = db_task.assignee.id if db_task.assignee else None
-        assignee = data.get("assignee", assignee)
-        self.assertEqual(response.data["assignee"], assignee)
+        assignee = data.get("assignee_id", assignee)
+        response_assignee = response.data["assignee"]["id"] if response.data["assignee"] else None
+        self.assertEqual(response_assignee, assignee)
         self.assertEqual(response.data["overlap"], db_task.overlap)
         self.assertEqual(response.data["segment_size"], db_task.segment_size)
-        z_order = data.get("z_order", db_task.z_order)
-        self.assertEqual(response.data["z_order"], z_order)
         image_quality = data.get("image_quality", db_task.data.image_quality)
         self.assertEqual(response.data["image_quality"], image_quality)
         self.assertEqual(response.data["status"], db_task.status)
@@ -1201,7 +1217,7 @@ class TaskUpdateAPITestCase(APITestCase):
     def test_api_v1_tasks_id_admin(self):
         data = {
             "name": "new name for the task",
-            "owner": self.owner.id,
+            "owner_id": self.owner.id,
             "labels": [{
                 "name": "non-vehicle",
                 "attributes": [{
@@ -1217,7 +1233,7 @@ class TaskUpdateAPITestCase(APITestCase):
     def test_api_v1_tasks_id_user(self):
         data = {
             "name": "new name for the task",
-            "owner": self.assignee.id,
+            "owner_id": self.assignee.id,
             "labels": [{
                 "name": "car",
                 "attributes": [{
@@ -1265,7 +1281,7 @@ class TaskPartialUpdateAPITestCase(TaskUpdateAPITestCase):
 
         data = {
             "name": "new name for the task",
-            "owner": self.owner.id
+            "owner_id": self.owner.id
         }
         self._check_api_v1_tasks_id(self.admin, data)
         # Now owner is updated, but self.db_tasks are obsolete
@@ -1288,8 +1304,8 @@ class TaskPartialUpdateAPITestCase(TaskUpdateAPITestCase):
         self._check_api_v1_tasks_id(self.user, data)
 
         data = {
-            "owner": self.observer.id,
-            "assignee": self.annotator.id
+            "owner_id": self.observer.id,
+            "assignee_id": self.annotator.id
         }
         self._check_api_v1_tasks_id(self.user, data)
 
@@ -1327,12 +1343,12 @@ class TaskCreateAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["name"], data["name"])
         self.assertEqual(response.data["mode"], "")
-        self.assertEqual(response.data["owner"], data.get("owner", user.id))
-        self.assertEqual(response.data["assignee"], data.get("assignee"))
+        self.assertEqual(response.data["owner"]["id"], data.get("owner_id", user.id))
+        assignee = response.data["assignee"]["id"] if response.data["assignee"] else None
+        self.assertEqual(assignee, data.get("assignee_id", None))
         self.assertEqual(response.data["bug_tracker"], data.get("bug_tracker", ""))
         self.assertEqual(response.data["overlap"], data.get("overlap", None))
         self.assertEqual(response.data["segment_size"], data.get("segment_size", 0))
-        self.assertEqual(response.data["z_order"], data.get("z_order", False))
         self.assertEqual(response.data["status"], StatusChoice.ANNOTATION)
         self.assertListEqual(
             [label["name"] for label in data.get("labels")],
@@ -1366,7 +1382,7 @@ class TaskCreateAPITestCase(APITestCase):
     def test_api_v1_tasks_user(self):
         data = {
             "name": "new name for the task",
-            "owner": self.assignee.id,
+            "owner_id": self.assignee.id,
             "labels": [{
                 "name": "car",
                 "attributes": [{
@@ -1400,8 +1416,9 @@ class TaskCreateAPITestCase(APITestCase):
 
 def generate_image_file(filename):
     f = BytesIO()
-    width = random.randint(100, 800)
-    height = random.randint(100, 800)
+    gen = random.SystemRandom()
+    width = gen.randint(100, 800)
+    height = gen.randint(100, 800)
     image = Image.new('RGB', size=(width, height))
     image.save(f, 'jpeg')
     f.name = filename
@@ -1467,6 +1484,19 @@ def generate_zip_archive_file(filename, count):
     zip_buf.seek(0)
     return image_sizes, zip_buf
 
+def generate_pdf_file(filename, page_count=1):
+    images = [Image.fromarray(np.ones((50, 100, 3), dtype=np.uint8))
+        for _ in range(page_count)]
+    image_sizes = [img.size for img in images]
+
+    file_buf = BytesIO()
+    images[0].save(file_buf, 'pdf', save_all=True, resolution=200,
+        append_images=images[1:])
+
+    file_buf.name = filename
+    file_buf.seek(0)
+    return image_sizes, file_buf
+
 class TaskDataAPITestCase(APITestCase):
     _image_sizes = {}
 
@@ -1523,6 +1553,16 @@ class TaskDataAPITestCase(APITestCase):
             video.write(data.read())
         cls._image_sizes[filename] = img_sizes
 
+        filename = "test_rotated_90_video.mp4"
+        path = os.path.join(os.path.dirname(__file__), 'assets', 'test_rotated_90_video.mp4')
+        container = av.open(path, 'r')
+        for frame in container.decode(video=0):
+            # pyav ignores rotation record in metadata when decoding frames
+            img_sizes = [(frame.height, frame.width)] * container.streams.video[0].frames
+            break
+        container.close()
+        cls._image_sizes[filename] = img_sizes
+
         filename = os.path.join("videos", "test_video_1.mp4")
         path = os.path.join(settings.SHARE_ROOT, filename)
         os.makedirs(os.path.dirname(path))
@@ -1559,6 +1599,8 @@ class TaskDataAPITestCase(APITestCase):
         path = os.path.join(settings.SHARE_ROOT, "videos", "test_video_1.mp4")
         os.remove(path)
 
+        path = os.path.join(settings.SHARE_ROOT, "videos", "meta_info.txt")
+        os.remove(path)
 
     def _run_api_v1_tasks_id_data_post(self, tid, user, data):
         with ForceLogin(user, self.client):
@@ -1611,7 +1653,8 @@ class TaskDataAPITestCase(APITestCase):
         stream = container.streams.video[0]
         return [f.to_image() for f in container.decode(stream)]
 
-    def _test_api_v1_tasks_id_data_spec(self, user, spec, data, expected_compressed_type, expected_original_type, image_sizes):
+    def _test_api_v1_tasks_id_data_spec(self, user, spec, data, expected_compressed_type, expected_original_type, image_sizes,
+                                        expected_storage_method=StorageMethodChoice.FILE_SYSTEM):
         # create task
         response = self._create_task(user, spec)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -1625,8 +1668,8 @@ class TaskDataAPITestCase(APITestCase):
         response = self._get_task(user, task_id)
 
         expected_status_code = status.HTTP_200_OK
-        if user == self.user and "owner" in spec and spec["owner"] != user.id and \
-           "assignee" in spec and spec["assignee"] != user.id:
+        if user == self.user and "owner_id" in spec and spec["owner_id"] != user.id and \
+           "assignee_id" in spec and spec["assignee_id"] != user.id:
             expected_status_code = status.HTTP_403_FORBIDDEN
         self.assertEqual(response.status_code, expected_status_code)
 
@@ -1635,6 +1678,7 @@ class TaskDataAPITestCase(APITestCase):
             self.assertEqual(expected_compressed_type, task["data_compressed_chunk_type"])
             self.assertEqual(expected_original_type, task["data_original_chunk_type"])
             self.assertEqual(len(image_sizes), task["size"])
+            self.assertEqual(expected_storage_method, Task.objects.get(pk=task_id).data.storage_method)
 
         # check preview
         response = self._get_preview(task_id, user)
@@ -1647,7 +1691,10 @@ class TaskDataAPITestCase(APITestCase):
         response = self._get_compressed_chunk(task_id, user, 0)
         self.assertEqual(response.status_code, expected_status_code)
         if expected_status_code == status.HTTP_200_OK:
-            compressed_chunk = io.BytesIO(b"".join(response.streaming_content))
+            if isinstance(response, HttpResponse):
+                compressed_chunk = io.BytesIO(response.content)
+            else:
+                compressed_chunk = io.BytesIO(b"".join(response.streaming_content))
             if task["data_compressed_chunk_type"] == self.ChunkType.IMAGESET:
                 images = self._extract_zip_chunk(compressed_chunk)
             else:
@@ -1662,7 +1709,10 @@ class TaskDataAPITestCase(APITestCase):
         response = self._get_original_chunk(task_id, user, 0)
         self.assertEqual(response.status_code, expected_status_code)
         if expected_status_code == status.HTTP_200_OK:
-            original_chunk  = io.BytesIO(b"".join(response.streaming_content))
+            if isinstance(response, HttpResponse):
+                original_chunk = io.BytesIO(response.getvalue())
+            else:
+                original_chunk  = io.BytesIO(b"".join(response.streaming_content))
             if task["data_original_chunk_type"] == self.ChunkType.IMAGESET:
                 images = self._extract_zip_chunk(original_chunk)
             else:
@@ -1686,6 +1736,10 @@ class TaskDataAPITestCase(APITestCase):
                 for f in source_files:
                     if zipfile.is_zipfile(f):
                         source_images.extend(self._extract_zip_chunk(f))
+                    elif isinstance(f, io.BytesIO) and \
+                            str(getattr(f, 'name', None)).endswith('.pdf'):
+                        source_images.extend(convert_from_bytes(f.getvalue(),
+                            fmt='png'))
                     else:
                         source_images.append(Image.open(f))
 
@@ -1697,11 +1751,10 @@ class TaskDataAPITestCase(APITestCase):
     def _test_api_v1_tasks_id_data(self, user):
         task_spec = {
             "name": "my task #1",
-            "owner": self.owner.id,
-            "assignee": self.assignee.id,
+            "owner_id": self.owner.id,
+            "assignee_id": self.assignee.id,
             "overlap": 0,
             "segment_size": 100,
-            "z_order": False,
             "labels": [
                 {"name": "car"},
                 {"name": "person"},
@@ -1748,7 +1801,6 @@ class TaskDataAPITestCase(APITestCase):
             "name": "my video task #1",
             "overlap": 0,
             "segment_size": 100,
-            "z_order": False,
             "labels": [
                 {"name": "car"},
                 {"name": "person"},
@@ -1850,6 +1902,182 @@ class TaskDataAPITestCase(APITestCase):
 
         self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data, self.ChunkType.IMAGESET, self.ChunkType.IMAGESET, image_sizes)
 
+        task_spec = {
+            "name": "cached video task #8",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+
+        task_data = {
+            "server_files[0]": 'test_video_1.mp4',
+            "image_quality": 70,
+            "use_cache": True,
+        }
+
+        image_sizes = self._image_sizes[task_data["server_files[0]"]]
+
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data, self.ChunkType.VIDEO,
+            self.ChunkType.VIDEO, image_sizes, StorageMethodChoice.CACHE)
+
+        task_spec = {
+            "name": "cached images task #9",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+
+        task_data = {
+            "server_files[0]": "test_1.jpg",
+            "server_files[1]": "test_2.jpg",
+            "server_files[2]": "test_3.jpg",
+            "image_quality": 70,
+            "use_cache": True,
+        }
+        image_sizes = [
+            self._image_sizes[task_data["server_files[0]"]],
+            self._image_sizes[task_data["server_files[1]"]],
+            self._image_sizes[task_data["server_files[2]"]],
+        ]
+
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data, self.ChunkType.IMAGESET,
+            self.ChunkType.IMAGESET, image_sizes, StorageMethodChoice.CACHE)
+
+        task_spec = {
+            "name": "my cached zip archive task #10",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+
+        task_data = {
+            "server_files[0]": "test_archive_1.zip",
+            "image_quality": 70,
+            "use_cache": True
+        }
+
+        image_sizes = self._image_sizes[task_data["server_files[0]"]]
+
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data, self.ChunkType.IMAGESET,
+            self.ChunkType.IMAGESET, image_sizes, StorageMethodChoice.CACHE)
+
+        task_spec = {
+            "name": "my cached pdf task #11",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+
+        image_sizes, document = generate_pdf_file("test_pdf_1.pdf", 5)
+
+        task_data = {
+            "client_files[0]": document,
+            "image_quality": 70,
+            "use_cache": True
+        }
+
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data,
+            self.ChunkType.IMAGESET, self.ChunkType.IMAGESET,
+            image_sizes, StorageMethodChoice.CACHE)
+
+        task_spec = {
+            "name": "my pdf task #12",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+
+        image_sizes, document = generate_pdf_file("test_pdf_2.pdf", 4)
+
+        task_data = {
+            "client_files[0]": document,
+            "image_quality": 70,
+        }
+
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data,
+            self.ChunkType.IMAGESET, self.ChunkType.IMAGESET, image_sizes)
+
+        prepare_meta_for_upload(
+            prepare_meta,
+            os.path.join(settings.SHARE_ROOT, "videos", "test_video_1.mp4"),
+            os.path.join(settings.SHARE_ROOT, "videos")
+        )
+        task_spec = {
+            "name": "my video with meta info task #13",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+        task_data = {
+            "server_files[0]": os.path.join("videos", "test_video_1.mp4"),
+            "server_files[1]": os.path.join("videos", "meta_info.txt"),
+            "image_quality": 70,
+            "use_cache": True
+        }
+        image_sizes = self._image_sizes[task_data['server_files[0]']]
+
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data, self.ChunkType.VIDEO,
+                                            self.ChunkType.VIDEO, image_sizes, StorageMethodChoice.CACHE)
+
+        task_spec = {
+            "name": "my cached video task #14",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+
+        task_data = {
+            "client_files[0]": open(os.path.join(os.path.dirname(__file__), 'assets', 'test_rotated_90_video.mp4'), 'rb'),
+            "image_quality": 70,
+            "use_zip_chunks": True
+        }
+
+        image_sizes = self._image_sizes['test_rotated_90_video.mp4']
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data, self.ChunkType.IMAGESET,
+            self.ChunkType.VIDEO, image_sizes, StorageMethodChoice.FILE_SYSTEM)
+
+        task_spec = {
+            "name": "my video task #15",
+            "overlap": 0,
+            "segment_size": 0,
+            "labels": [
+                {"name": "car"},
+                {"name": "person"},
+            ]
+        }
+
+        task_data = {
+            "client_files[0]": open(os.path.join(os.path.dirname(__file__), 'assets', 'test_rotated_90_video.mp4'), 'rb'),
+            "image_quality": 70,
+            "use_cache": True,
+            "use_zip_chunks": True
+        }
+
+        image_sizes = self._image_sizes['test_rotated_90_video.mp4']
+        self._test_api_v1_tasks_id_data_spec(user, task_spec, task_data, self.ChunkType.IMAGESET,
+            self.ChunkType.VIDEO, image_sizes, StorageMethodChoice.CACHE)
+
     def test_api_v1_tasks_id_data_admin(self):
         self._test_api_v1_tasks_id_data(self.admin)
 
@@ -1862,11 +2090,10 @@ class TaskDataAPITestCase(APITestCase):
     def test_api_v1_tasks_id_data_no_auth(self):
         data = {
             "name": "my task #3",
-            "owner": self.owner.id,
-            "assignee": self.assignee.id,
+            "owner_id": self.owner.id,
+            "assignee_id": self.assignee.id,
             "overlap": 0,
             "segment_size": 100,
-            "z_order": False,
             "labels": [
                 {"name": "car"},
                 {"name": "person"},
@@ -1909,11 +2136,10 @@ class JobAnnotationAPITestCase(APITestCase):
     def _create_task(self, owner, assignee):
         data = {
             "name": "my task #1",
-            "owner": owner.id,
-            "assignee": assignee.id,
+            "owner_id": owner.id,
+            "assignee_id": assignee.id,
             "overlap": 0,
             "segment_size": 100,
-            "z_order": False,
             "labels": [
                 {
                     "name": "car",
@@ -1929,7 +2155,7 @@ class JobAnnotationAPITestCase(APITestCase):
                             "name": "parked",
                             "mutable": True,
                             "input_type": "checkbox",
-                            "default_value": False
+                            "default_value": "false"
                         },
                     ]
                 },
@@ -1946,7 +2172,14 @@ class JobAnnotationAPITestCase(APITestCase):
                 "client_files[0]": generate_image_file("test_1.jpg")[1],
                 "client_files[1]": generate_image_file("test_2.jpg")[1],
                 "client_files[2]": generate_image_file("test_3.jpg")[1],
+                "client_files[4]": generate_image_file("test_4.jpg")[1],
+                "client_files[5]": generate_image_file("test_5.jpg")[1],
+                "client_files[6]": generate_image_file("test_6.jpg")[1],
+                "client_files[7]": generate_image_file("test_7.jpg")[1],
+                "client_files[8]": generate_image_file("test_8.jpg")[1],
+                "client_files[9]": generate_image_file("test_9.jpg")[1],
                 "image_quality": 75,
+                "frame_filter": "step=3",
             }
             response = self.client.post("/api/v1/tasks/{}/data".format(tid), data=images)
             assert response.status_code == status.HTTP_202_ACCEPTED
@@ -2041,6 +2274,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": []
                 }
             ],
@@ -2049,6 +2283,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2064,9 +2299,10 @@ class JobAnnotationAPITestCase(APITestCase):
                     "occluded": False
                 },
                 {
-                    "frame": 1,
+                    "frame": 2,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "points": [2.0, 2.1, 100, 300.222, 400, 500, 1, 3],
                     "type": "polygon",
@@ -2078,6 +2314,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2099,7 +2336,7 @@ class JobAnnotationAPITestCase(APITestCase):
                             ]
                         },
                         {
-                            "frame": 1,
+                            "frame": 2,
                             "attributes": [],
                             "points": [2.0, 2.1, 100, 300.222],
                             "type": "rectangle",
@@ -2112,10 +2349,11 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
-                            "frame": 1,
+                            "frame": 2,
                             "attributes": [],
                             "points": [1.0, 2.1, 100, 300.222],
                             "type": "rectangle",
@@ -2161,6 +2399,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": []
                 }
             ],
@@ -2169,6 +2408,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2181,16 +2421,17 @@ class JobAnnotationAPITestCase(APITestCase):
                     ],
                     "points": [1.0, 2.1, 100, 300.222],
                     "type": "rectangle",
-                    "occluded": False
+                    "occluded": False,
                 },
                 {
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "points": [2.0, 2.1, 100, 300.222, 400, 500, 1, 3],
                     "type": "polygon",
-                    "occluded": False
+                    "occluded": False,
                 },
             ],
             "tracks": [
@@ -2198,6 +2439,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2224,7 +2466,7 @@ class JobAnnotationAPITestCase(APITestCase):
                             "points": [2.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": True,
-                            "outside": True
+                            "outside": True,
                         },
                     ]
                 },
@@ -2232,6 +2474,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
@@ -2240,7 +2483,7 @@ class JobAnnotationAPITestCase(APITestCase):
                             "points": [1.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": False,
-                            "outside": False
+                            "outside": False,
                         }
                     ]
                 },
@@ -2302,7 +2545,8 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": 11010101,
                     "group": None,
-                    "attributes": []
+                    "source": "manual",
+                    "attributes": [],
                 }
             ],
             "shapes": [
@@ -2310,6 +2554,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": 32234234,
@@ -2322,16 +2567,17 @@ class JobAnnotationAPITestCase(APITestCase):
                     ],
                     "points": [1.0, 2.1, 100, 300.222],
                     "type": "rectangle",
-                    "occluded": False
+                    "occluded": False,
                 },
                 {
                     "frame": 1,
                     "label_id": 1212121,
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "points": [2.0, 2.1, 100, 300.222, 400, 500, 1, 3],
                     "type": "polygon",
-                    "occluded": False
+                    "occluded": False,
                 },
             ],
             "tracks": [
@@ -2339,6 +2585,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 0,
                     "label_id": 0,
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
@@ -2364,7 +2611,7 @@ class JobAnnotationAPITestCase(APITestCase):
                             "points": [2.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": True,
-                            "outside": True
+                            "outside": True,
                         },
                     ]
                 },
@@ -2372,6 +2619,7 @@ class JobAnnotationAPITestCase(APITestCase):
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
@@ -2380,7 +2628,7 @@ class JobAnnotationAPITestCase(APITestCase):
                             "points": [1.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": False,
-                            "outside": False
+                            "outside": False,
                         }
                     ]
                 },
@@ -2448,7 +2696,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
     def _dump_api_v1_tasks_id_annotations(self, pk, user, query_params=""):
         with ForceLogin(user, self.client):
             response = self.client.get(
-                "/api/v1/tasks/{0}/annotations/my_task_{0}?{1}".format(pk, query_params))
+                "/api/v1/tasks/{0}/annotations{1}".format(pk, query_params))
 
         return response
 
@@ -2470,7 +2718,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
 
         return response
 
-    def _get_annotation_formats(self, user):
+    def _get_formats(self, user):
         with ForceLogin(user, self.client):
             response = self.client.get(
                 path="/api/v1/server/annotation/formats"
@@ -2515,7 +2763,8 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
-                    "attributes": []
+                    "source": "manual",
+                    "attributes": [],
                 }
             ],
             "shapes": [
@@ -2523,6 +2772,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2535,16 +2785,17 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     ],
                     "points": [1.0, 2.1, 100, 300.222],
                     "type": "rectangle",
-                    "occluded": False
+                    "occluded": False,
                 },
                 {
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "points": [2.0, 2.1, 100, 300.222, 400, 500, 1, 3],
                     "type": "polygon",
-                    "occluded": False
+                    "occluded": False,
                 },
             ],
             "tracks": [
@@ -2552,6 +2803,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2578,7 +2830,8 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                             "points": [2.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": True,
-                            "outside": True
+                            "outside": True,
+
                         },
                     ]
                 },
@@ -2586,6 +2839,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
@@ -2594,7 +2848,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                             "points": [1.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": False,
-                            "outside": False
+                            "outside": False,
                         }
                     ]
                 },
@@ -2635,7 +2889,8 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
-                    "attributes": []
+                    "source": "manual",
+                    "attributes": [],
                 }
             ],
             "shapes": [
@@ -2643,6 +2898,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2655,16 +2911,17 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     ],
                     "points": [1.0, 2.1, 100, 300.222],
                     "type": "rectangle",
-                    "occluded": False
+                    "occluded": False,
                 },
                 {
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "points": [2.0, 2.1, 100, 300.222, 400, 500, 1, 3],
                     "type": "polygon",
-                    "occluded": False
+                    "occluded": False,
                 },
             ],
             "tracks": [
@@ -2672,6 +2929,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2698,7 +2956,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                             "points": [2.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": True,
-                            "outside": True
+                            "outside": True,
                         },
                     ]
                 },
@@ -2706,6 +2964,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
@@ -2714,7 +2973,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                             "points": [1.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": False,
-                            "outside": False
+                            "outside": False,
                         }
                     ]
                 },
@@ -2776,7 +3035,8 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": 11010101,
                     "group": None,
-                    "attributes": []
+                    "source": "manual",
+                    "attributes": [],
                 }
             ],
             "shapes": [
@@ -2784,6 +3044,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": task["labels"][0]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [
                         {
                             "spec_id": 32234234,
@@ -2796,16 +3057,17 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     ],
                     "points": [1.0, 2.1, 100, 300.222],
                     "type": "rectangle",
-                    "occluded": False
+                    "occluded": False,
                 },
                 {
                     "frame": 1,
                     "label_id": 1212121,
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "points": [2.0, 2.1, 100, 300.222, 400, 500, 1, 3],
                     "type": "polygon",
-                    "occluded": False
+                    "occluded": False,
                 },
             ],
             "tracks": [
@@ -2813,6 +3075,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 0,
                     "label_id": 0,
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
@@ -2838,7 +3101,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                             "points": [2.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": True,
-                            "outside": True
+                            "outside": True,
                         },
                     ]
                 },
@@ -2846,6 +3109,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "frame": 1,
                     "label_id": task["labels"][1]["id"],
                     "group": None,
+                    "source": "manual",
                     "attributes": [],
                     "shapes": [
                         {
@@ -2854,7 +3118,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                             "points": [1.0, 2.1, 100, 300.222],
                             "type": "rectangle",
                             "occluded": False,
-                            "outside": False
+                            "outside": False,
                         }
                     ]
                 },
@@ -2881,6 +3145,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                 "frame": 0,
                 "label_id": task["labels"][0]["id"],
                 "group": 0,
+                "source": "manual",
                 "attributes": [
                     {
                         "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2906,6 +3171,19 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                         "points": [2.0, 2.1, 77.2, 36.22],
                         "type": "rectangle",
                         "occluded": True,
+                        "outside": False,
+                        "attributes": [
+                            {
+                                "spec_id": task["labels"][0]["attributes"][1]["id"],
+                                "value": task["labels"][0]["attributes"][1]["default_value"]
+                            }
+                        ]
+                    },
+                    {
+                        "frame": 2,
+                        "points": [2.0, 2.1, 77.2, 36.22],
+                        "type": "rectangle",
+                        "occluded": True,
                         "outside": True,
                         "attributes": [
                             {
@@ -2917,15 +3195,24 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                 ]
             }]
             rectangle_tracks_wo_attrs = [{
-                "frame": 1,
+                "frame": 0,
                 "label_id": task["labels"][1]["id"],
                 "group": 0,
+                "source": "manual",
                 "attributes": [],
                 "shapes": [
                     {
-                        "frame": 1,
+                        "frame": 0,
                         "attributes": [],
                         "points": [1.0, 2.1, 50.2, 36.6],
+                        "type": "rectangle",
+                        "occluded": False,
+                        "outside": False,
+                    },
+                    {
+                        "frame": 1,
+                        "attributes": [],
+                        "points": [1.0, 2.1, 51, 36.6],
                         "type": "rectangle",
                         "occluded": False,
                         "outside": False
@@ -2936,7 +3223,40 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                         "points": [1.0, 2.1, 51, 36.6],
                         "type": "rectangle",
                         "occluded": False,
-                        "outside": True
+                        "outside": True,
+                    }
+                ]
+            }]
+            polygon_tracks_wo_attrs = [{
+                "frame": 0,
+                "label_id": task["labels"][1]["id"],
+                "group": 0,
+                "source": "manual",
+                "attributes": [],
+                "shapes": [
+                    {
+                        "frame": 0,
+                        "attributes": [],
+                        "points": [1.0, 2.1, 50.2, 36.6, 7.0, 10.0],
+                        "type": "polygon",
+                        "occluded": False,
+                        "outside": False,
+                    },
+                    {
+                        "frame": 1,
+                        "attributes": [],
+                        "points": [1.0, 2.1, 51, 36.6, 8.0, 11.0],
+                        "type": "polygon",
+                        "occluded": False,
+                        "outside": False
+                    },
+                    {
+                        "frame": 2,
+                        "attributes": [],
+                        "points": [1.0, 2.1, 51, 36.6, 14.0, 15.0],
+                        "type": "polygon",
+                        "occluded": False,
+                        "outside": True,
                     }
                 ]
             }]
@@ -2945,6 +3265,7 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                 "frame": 0,
                 "label_id": task["labels"][0]["id"],
                 "group": 0,
+                "source": "manual",
                 "attributes": [
                     {
                         "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2957,33 +3278,36 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                 ],
                 "points": [1.0, 2.1, 10.6, 53.22],
                 "type": "rectangle",
-                "occluded": False
+                "occluded": False,
             }]
 
             rectangle_shapes_wo_attrs = [{
                 "frame": 1,
                 "label_id": task["labels"][1]["id"],
                 "group": 0,
+                "source": "manual",
                 "attributes": [],
                 "points": [2.0, 2.1, 40, 50.7],
                 "type": "rectangle",
-                "occluded": False
+                "occluded": False,
             }]
 
             polygon_shapes_wo_attrs = [{
                 "frame": 1,
                 "label_id": task["labels"][1]["id"],
                 "group": 0,
+                "source": "manual",
                 "attributes": [],
                 "points": [2.0, 2.1, 100, 30.22, 40, 77, 1, 3],
                 "type": "polygon",
-                "occluded": False
+                "occluded": False,
             }]
 
             polygon_shapes_with_attrs = [{
                 "frame": 2,
                 "label_id": task["labels"][0]["id"],
                 "group": 1,
+                "source": "manual",
                 "attributes": [
                     {
                         "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -2996,28 +3320,31 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                 ],
                 "points": [20.0, 0.1, 10, 3.22, 4, 7, 10, 30, 1, 2, 4.44, 5.55],
                 "type": "polygon",
-                "occluded": True
+                "occluded": True,
             },
             {
                 "frame": 2,
                 "label_id": task["labels"][1]["id"],
                 "group": 1,
+                "source": "manual",
                 "attributes": [],
                 "points": [4, 7, 10, 30, 4, 5.55],
                 "type": "polygon",
-                "occluded": False
+                "occluded": False,
             }]
 
             tags_wo_attrs = [{
                 "frame": 2,
                 "label_id": task["labels"][1]["id"],
                 "group": 0,
-                "attributes": []
+                "source": "manual",
+                "attributes": [],
             }]
             tags_with_attrs = [{
                 "frame": 1,
                 "label_id": task["labels"][0]["id"],
                 "group": 3,
+                "source": "manual",
                 "attributes": [
                     {
                         "spec_id": task["labels"][0]["attributes"][0]["id"],
@@ -3036,65 +3363,97 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     "shapes": [],
                     "tracks": [],
                 }
-            if annotation_format == "CVAT XML 1.1 for videos":
-                annotations["tracks"] = rectangle_tracks_with_attrs + rectangle_tracks_wo_attrs
+            if annotation_format == "CVAT for video 1.1":
+                annotations["tracks"] = rectangle_tracks_with_attrs \
+                                      + rectangle_tracks_wo_attrs \
+                                      + polygon_tracks_wo_attrs
 
-            elif annotation_format == "CVAT XML 1.1 for images":
-                annotations["shapes"] = rectangle_shapes_with_attrs + rectangle_shapes_wo_attrs \
-                    + polygon_shapes_wo_attrs + polygon_shapes_with_attrs
+            elif annotation_format == "CVAT for images 1.1":
+                annotations["shapes"] = rectangle_shapes_with_attrs \
+                                      + rectangle_shapes_wo_attrs \
+                                      + polygon_shapes_wo_attrs \
+                                      + polygon_shapes_with_attrs
                 annotations["tags"] = tags_with_attrs + tags_wo_attrs
 
-            elif annotation_format == "PASCAL VOC ZIP 1.1":
+            elif annotation_format == "PASCAL VOC 1.1":
                 annotations["shapes"] = rectangle_shapes_wo_attrs
                 annotations["tags"] = tags_wo_attrs
 
-            elif annotation_format == "YOLO ZIP 1.1" or \
-                 annotation_format == "TFRecord ZIP 1.0":
+            elif annotation_format == "YOLO 1.1" or \
+                 annotation_format == "TFRecord 1.0":
                 annotations["shapes"] = rectangle_shapes_wo_attrs
 
-            elif annotation_format == "COCO JSON 1.0":
+            elif annotation_format == "COCO 1.0":
                 annotations["shapes"] = polygon_shapes_wo_attrs
 
-            elif annotation_format == "MASK ZIP 1.1":
-                annotations["shapes"] = rectangle_shapes_wo_attrs + polygon_shapes_wo_attrs
+            elif annotation_format == "Segmentation mask 1.1":
+                annotations["shapes"] = rectangle_shapes_wo_attrs \
+                                      + polygon_shapes_wo_attrs
                 annotations["tracks"] = rectangle_tracks_wo_attrs
 
-            elif annotation_format == "MOT ZIP 1.1":
+            elif annotation_format == "MOT 1.1":
+                annotations["shapes"] = rectangle_shapes_wo_attrs
                 annotations["tracks"] = rectangle_tracks_wo_attrs
 
-            elif annotation_format == "LabelMe ZIP 3.0":
-                annotations["shapes"] = rectangle_shapes_with_attrs + \
-                                        rectangle_shapes_wo_attrs + \
-                                        polygon_shapes_wo_attrs + \
-                                        polygon_shapes_with_attrs
+            elif annotation_format == "MOTS PNG 1.0":
+                annotations["tracks"] = polygon_tracks_wo_attrs
+
+            elif annotation_format == "LabelMe 3.0":
+                annotations["shapes"] = rectangle_shapes_with_attrs \
+                                      + rectangle_shapes_wo_attrs \
+                                      + polygon_shapes_wo_attrs \
+                                      + polygon_shapes_with_attrs
+
+            elif annotation_format == "Datumaro 1.0":
+                annotations["shapes"] = rectangle_shapes_with_attrs \
+                                      + rectangle_shapes_wo_attrs \
+                                      + polygon_shapes_wo_attrs \
+                                      + polygon_shapes_with_attrs
+                annotations["tags"] = tags_with_attrs + tags_wo_attrs
+
+            elif annotation_format == "ImageNet 1.0":
+                annotations["tags"] = tags_wo_attrs
+
+            else:
+                raise Exception("Unknown format {}".format(annotation_format))
 
             return annotations
 
-        response = self._get_annotation_formats(annotator)
+        response = self._get_formats(annotator)
         self.assertEqual(response.status_code, HTTP_200_OK)
-
         if annotator is not None:
-            supported_formats = response.data
+            data = response.data
         else:
-            supported_formats = [{
-                "name": "CVAT",
-                "dumpers": [{
-                    "display_name": "CVAT XML 1.1 for images"
-                }],
-                "loaders": [{
-                    "display_name": "CVAT XML 1.1"
-                }]
-            }]
+            data = self._get_formats(owner).data
+        import_formats = data['importers']
+        export_formats = data['exporters']
+        self.assertTrue(isinstance(import_formats, list) and import_formats)
+        self.assertTrue(isinstance(export_formats, list) and export_formats)
+        import_formats = { v['name']: v for v in import_formats }
+        export_formats = { v['name']: v for v in export_formats }
 
-        self.assertTrue(isinstance(supported_formats, list) and supported_formats)
+        formats = { exp: exp if exp in import_formats else None
+            for exp in export_formats }
+        if 'CVAT 1.1' in import_formats:
+            if 'CVAT for video 1.1' in export_formats:
+                formats['CVAT for video 1.1'] = 'CVAT 1.1'
+            if 'CVAT for images 1.1' in export_formats:
+                formats['CVAT for images 1.1'] = 'CVAT 1.1'
+        if set(import_formats) ^ set(export_formats):
+            # NOTE: this may not be an error, so we should not fail
+            print("The following import formats have no pair:",
+                set(import_formats) - set(export_formats))
+            print("The following export formats have no pair:",
+                set(export_formats) - set(import_formats))
 
-        for annotation_format in supported_formats:
-            for dumper in annotation_format["dumpers"]:
+        for export_format, import_format in formats.items():
+            with self.subTest(export_format=export_format,
+                    import_format=import_format):
                 # 1. create task
                 task, jobs = self._create_task(owner, assignee)
 
                 # 2. add annotation
-                data = _get_initial_annotation(dumper["display_name"])
+                data = _get_initial_annotation(export_format)
                 response = self._put_api_v1_tasks_id_annotations(task["id"], annotator, data)
                 data["version"] += 1
 
@@ -3103,49 +3462,65 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
 
                 # 3. download annotation
                 response = self._dump_api_v1_tasks_id_annotations(task["id"], annotator,
-                    "format={}".format(dumper["display_name"]))
-                self.assertEqual(response.status_code, HTTP_202_ACCEPTED)
+                    "?format={}".format(export_format))
+                if annotator and not export_formats[export_format]['enabled']:
+                    self.assertEqual(response.status_code,
+                        status.HTTP_405_METHOD_NOT_ALLOWED)
+                    continue
+                else:
+                    self.assertEqual(response.status_code, HTTP_202_ACCEPTED)
 
                 response = self._dump_api_v1_tasks_id_annotations(task["id"], annotator,
-                    "format={}".format(dumper["display_name"]))
+                    "?format={}".format(export_format))
                 self.assertEqual(response.status_code, HTTP_201_CREATED)
 
                 response = self._dump_api_v1_tasks_id_annotations(task["id"], annotator,
-                    "action=download&format={}".format(dumper["display_name"]))
+                    "?format={}&action=download".format(export_format))
                 self.assertEqual(response.status_code, HTTP_200_OK)
 
                 # 4. check downloaded data
-                if response.status_code == status.HTTP_200_OK:
+                if annotator is not None:
                     self.assertTrue(response.streaming)
                     content = io.BytesIO(b"".join(response.streaming_content))
-                    self._check_dump_content(content, task, jobs, data, annotation_format["name"])
+                    self._check_dump_content(content, task, jobs, data, export_format)
                     content.seek(0)
+                else:
+                    content = io.BytesIO()
 
-                    # 5. remove annotation form the task
-                    response = self._delete_api_v1_tasks_id_annotations(task["id"], annotator)
-                    data["version"] += 1
-                    self.assertEqual(response.status_code, HTTP_204_NO_CONTENT)
+                # 5. remove annotation form the task
+                response = self._delete_api_v1_tasks_id_annotations(task["id"], annotator)
+                data["version"] += 1
+                self.assertEqual(response.status_code, HTTP_204_NO_CONTENT)
 
-                    # 6. upload annotation and check annotation
-                    uploaded_data = {
-                        "annotation_file": content,
-                    }
+                # 6. upload annotation
+                if not import_format:
+                    continue
 
-                    for loader in annotation_format["loaders"]:
-                        if loader["display_name"] == "MASK ZIP 1.1":
-                            continue # can't really predict the result and check
-                        response = self._upload_api_v1_tasks_id_annotations(task["id"], annotator, uploaded_data, "format={}".format(loader["display_name"]))
-                        self.assertEqual(response.status_code, HTTP_202_ACCEPTED)
+                uploaded_data = {
+                    "annotation_file": content,
+                }
+                response = self._upload_api_v1_tasks_id_annotations(
+                    task["id"], annotator, uploaded_data,
+                    "format={}".format(import_format))
+                self.assertEqual(response.status_code, HTTP_202_ACCEPTED)
 
-                        response = self._upload_api_v1_tasks_id_annotations(task["id"], annotator, {}, "format={}".format(loader["display_name"]))
-                        self.assertEqual(response.status_code, HTTP_201_CREATED)
+                response = self._upload_api_v1_tasks_id_annotations(
+                    task["id"], annotator, {},
+                    "format={}".format(import_format))
+                self.assertEqual(response.status_code, HTTP_201_CREATED)
 
-                        response = self._get_api_v1_tasks_id_annotations(task["id"], annotator)
-                        self.assertEqual(response.status_code, HTTP_200_OK)
-                        data["version"] += 2 # upload is delete + put
-                        self._check_response(response, data)
+                # 7. check annotation
+                if import_format in {"Segmentation mask 1.1", "MOTS PNG 1.0"}:
+                    continue # can't really predict the result to check
+                response = self._get_api_v1_tasks_id_annotations(task["id"], annotator)
+                self.assertEqual(response.status_code, HTTP_200_OK)
 
-    def _check_dump_content(self, content, task, jobs, data, annotation_format_name):
+                if annotator is None:
+                    continue
+                data["version"] += 2 # upload is delete + put
+                self._check_response(response, data)
+
+    def _check_dump_content(self, content, task, jobs, data, format_name):
         def etree_to_dict(t):
             d = {t.tag: {} if t.attrib else None}
             children = list(t)
@@ -3164,26 +3539,33 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
                     d[t.tag] = text
             return d
 
-        if annotation_format_name == "CVAT":
-            xmldump = ET.fromstring(content.read())
-            self.assertEqual(xmldump.tag, "annotations")
-            tags = xmldump.findall("./meta")
-            self.assertEqual(len(tags), 1)
-            meta = etree_to_dict(tags[0])["meta"]
-            self.assertEqual(meta["task"]["name"], task["name"])
-        elif annotation_format_name == "PASCAL VOC":
+        if format_name in {"CVAT for video 1.1", "CVAT for images 1.1"}:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                zipfile.ZipFile(content).extractall(tmp_dir)
+                xmls = glob(osp.join(tmp_dir, '**', '*.xml'), recursive=True)
+                self.assertTrue(xmls)
+                for xml in xmls:
+                    xmlroot = ET.parse(xml).getroot()
+                    self.assertEqual(xmlroot.tag, "annotations")
+                    tags = xmlroot.findall("./meta")
+                    self.assertEqual(len(tags), 1)
+                    meta = etree_to_dict(tags[0])["meta"]
+                    self.assertEqual(meta["task"]["name"], task["name"])
+        elif format_name == "PASCAL VOC 1.1":
             self.assertTrue(zipfile.is_zipfile(content))
-        elif annotation_format_name == "YOLO":
+        elif format_name == "YOLO 1.1":
             self.assertTrue(zipfile.is_zipfile(content))
-        elif annotation_format_name == "COCO":
-            with tempfile.NamedTemporaryFile() as tmp_file:
-                tmp_file.write(content.read())
-                tmp_file.flush()
-                coco = coco_loader.COCO(tmp_file.name)
-                self.assertTrue(coco.getAnnIds())
-        elif annotation_format_name == "TFRecord":
+        elif format_name == "COCO 1.0":
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                zipfile.ZipFile(content).extractall(tmp_dir)
+                jsons = glob(osp.join(tmp_dir, '**', '*.json'), recursive=True)
+                self.assertTrue(jsons)
+                for json in jsons:
+                    coco = coco_loader.COCO(json)
+                    self.assertTrue(coco.getAnnIds())
+        elif format_name == "TFRecord 1.0":
             self.assertTrue(zipfile.is_zipfile(content))
-        elif annotation_format_name == "MASK":
+        elif format_name == "Segmentation mask 1.1":
             self.assertTrue(zipfile.is_zipfile(content))
 
 
@@ -3234,31 +3616,22 @@ class TaskAnnotationAPITestCase(JobAnnotationAPITestCase):
             ]
             }"""
 
-        response = self._get_annotation_formats(user)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        supported_formats = response.data
-        self.assertTrue(isinstance(supported_formats, list) and supported_formats)
-
-        coco_format = None
-        for f in response.data:
-            if f["name"] == "COCO":
-                coco_format = f
-                break
-        self.assertTrue(coco_format)
-        loader = coco_format["loaders"][0]
-
         task, _ = self._create_task(user, user)
 
         content = io.BytesIO(generate_coco_anno())
         content.seek(0)
 
+        format_name = "COCO 1.0"
         uploaded_data = {
             "annotation_file": content,
         }
-        response = self._upload_api_v1_tasks_id_annotations(task["id"], user, uploaded_data, "format={}".format(loader["display_name"]))
+        response = self._upload_api_v1_tasks_id_annotations(
+            task["id"], user, uploaded_data,
+            "format={}".format(format_name))
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
 
-        response = self._upload_api_v1_tasks_id_annotations(task["id"], user, {}, "format={}".format(loader["display_name"]))
+        response = self._upload_api_v1_tasks_id_annotations(
+            task["id"], user, {}, "format={}".format(format_name))
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         response = self._get_api_v1_tasks_id_annotations(task["id"], user)
