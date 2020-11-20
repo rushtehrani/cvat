@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: MIT
 #
-version: "2.3"
+version: '3.3'
 
 services:
   cvat_db:
@@ -32,8 +32,7 @@ services:
 
   cvat:
     container_name: cvat
-    image: cvat
-#    command:  "&& /usr/bin/python3 ~/manage.py shell --command='import default_superuser'"
+    image: cvat/server
     restart: always
     depends_on:
       - cvat_redis
@@ -43,31 +42,26 @@ services:
       args:
         http_proxy:
         https_proxy:
-        no_proxy:
+        no_proxy: nuclio,${no_proxy}
         socks_proxy:
-        TF_ANNOTATION: "no"
-        AUTO_SEGMENTATION: "no"
-        TRACKING: "no"
-        USER: "django"
-        DJANGO_CONFIGURATION: "production"
-        TZ: "Etc/UTC"
-        OPENVINO_TOOLKIT: "no"
+        USER: 'django'
+        DJANGO_CONFIGURATION: 'production'
+        TZ: 'Etc/UTC'
+        CLAM_AV: 'no'
     environment:
-      DJANGO_MODWSGI_EXTRA_ARGS: ""
+      DJANGO_MODWSGI_EXTRA_ARGS: ''
       ALLOWED_HOSTS: '*'
-      CVAT_REDIS_HOST: "cvat_redis"
-      CVAT_POSTGRES_HOST: "cvat_db"
-      # CVAT_SHARE_URL: "Mounted from AWS S3"
+      CVAT_REDIS_HOST: 'cvat_redis'
+      CVAT_POSTGRES_HOST: 'cvat_db'
     volumes:
       - cvat_data:/home/django/data
       - cvat_keys:/home/django/keys
       - cvat_logs:/home/django/logs
       - cvat_models:/home/django/models
-      # - cvat_share:/home/django/share:ro
-    
 
   cvat_ui:
     container_name: cvat_ui
+    image: cvat/ui
     restart: always
     build:
       context: .
@@ -95,11 +89,18 @@ services:
     environment:
       CVAT_HOST: localhost
     ports:
-      - "8080:80"
+      - '8080:80'
     volumes:
       - ./cvat_proxy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./cvat_proxy/conf.d/cvat.conf.template:/etc/nginx/conf.d/cvat.conf.template:ro
     command: /bin/sh -c "envsubst '$$CVAT_HOST' < /etc/nginx/conf.d/cvat.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/24
 
 volumes:
   cvat_db:
@@ -107,8 +108,3 @@ volumes:
   cvat_keys:
   cvat_logs:
   cvat_models:
-  # cvat_share:
-  #   driver_opts:
-  #     type: none
-  #     device: /mnt/share
-  #     o: bind
