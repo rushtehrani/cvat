@@ -1,13 +1,6 @@
-/*
- * Copyright (C) 2018 Intel Corporation
- * SPDX-License-Identifier: MIT
-*/
-
-/* global
-    require:false
-    jest:false
-    describe:false
-*/
+// Copyright (C) 2020 Intel Corporation
+//
+// SPDX-License-Identifier: MIT
 
 // Setup mock for a server
 jest.mock('../../src/server-proxy', () => {
@@ -17,11 +10,7 @@ jest.mock('../../src/server-proxy', () => {
 
 // Initialize api
 window.cvat = require('../../src/api');
-const {
-    AnnotationFormat,
-    Loader,
-    Dumper,
-} = require('../../src/annotation-format');
+const { AnnotationFormats, Loader, Dumper } = require('../../src/annotation-formats');
 
 // Test cases
 describe('Feature: get info about cvat', () => {
@@ -33,7 +22,6 @@ describe('Feature: get info about cvat', () => {
         expect('version' in result).toBeTruthy();
     });
 });
-
 
 describe('Feature: get share storage info', () => {
     test('get files in a root of a share storage', async () => {
@@ -49,33 +37,25 @@ describe('Feature: get share storage info', () => {
     });
 
     test('get files in a some unknown dir of a share storage', async () => {
-        expect(window.cvat.server.share(
-            'Unknown Directory',
-        )).rejects.toThrow(window.cvat.exceptions.ServerError);
+        expect(window.cvat.server.share('Unknown Directory')).rejects.toThrow(window.cvat.exceptions.ServerError);
     });
 });
 
 describe('Feature: get annotation formats', () => {
     test('get annotation formats from a server', async () => {
         const result = await window.cvat.server.formats();
-        expect(Array.isArray(result)).toBeTruthy();
-        for (const format of result) {
-            expect(format).toBeInstanceOf(AnnotationFormat);
-        }
+        expect(result).toBeInstanceOf(AnnotationFormats);
     });
 });
 
 describe('Feature: get annotation loaders', () => {
     test('get annotation formats from a server', async () => {
         const result = await window.cvat.server.formats();
-        expect(Array.isArray(result)).toBeTruthy();
-        for (const format of result) {
-            expect(format).toBeInstanceOf(AnnotationFormat);
-            const { loaders } = format;
-            expect(Array.isArray(loaders)).toBeTruthy();
-            for (const loader of loaders) {
-                expect(loader).toBeInstanceOf(Loader);
-            }
+        expect(result).toBeInstanceOf(AnnotationFormats);
+        const { loaders } = result;
+        expect(Array.isArray(loaders)).toBeTruthy();
+        for (const loader of loaders) {
+            expect(loader).toBeInstanceOf(Loader);
         }
     });
 });
@@ -83,14 +63,11 @@ describe('Feature: get annotation loaders', () => {
 describe('Feature: get annotation dumpers', () => {
     test('get annotation formats from a server', async () => {
         const result = await window.cvat.server.formats();
-        expect(Array.isArray(result)).toBeTruthy();
-        for (const format of result) {
-            expect(format).toBeInstanceOf(AnnotationFormat);
-            const { dumpers } = format;
-            expect(Array.isArray(dumpers)).toBeTruthy();
-            for (const dumper of dumpers) {
-                expect(dumper).toBeInstanceOf(Dumper);
-            }
+        expect(result).toBeInstanceOf(AnnotationFormats);
+        const { dumpers } = result;
+        expect(Array.isArray(dumpers)).toBeTruthy();
+        for (const dumper of dumpers) {
+            expect(dumper).toBeInstanceOf(Dumper);
         }
     });
 });
