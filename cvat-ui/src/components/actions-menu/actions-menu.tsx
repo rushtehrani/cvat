@@ -15,17 +15,11 @@ interface Props {
     taskID: number;
     taskMode: string;
     bugTracker: string;
-
-    loaders: string[];
-    dumpers: string[];
-    exporters: string[];
+    loaders: any[];
+    dumpers: any[];
     loadActivity: string | null;
     dumpActivities: string[] | null;
     exportActivities: string[] | null;
-
-    installedTFAnnotation: boolean;
-    installedTFSegmentation: boolean;
-    installedAutoAnnotation: boolean;
     inferenceIsActive: boolean;
 
     onClickMenu: (params: ClickParam, file?: File) => void;
@@ -38,7 +32,6 @@ export enum Actions {
     DELETE_TASK = 'delete_task',
     RUN_AUTO_ANNOTATION = 'run_auto_annotation',
     OPEN_BUG_TRACKER = 'open_bug_tracker',
-    OPEN_NEW_ANNOTATION = 'open_new_annotation',
 }
 
 export default function ActionsMenuComponent(props: Props): JSX.Element {
@@ -46,23 +39,14 @@ export default function ActionsMenuComponent(props: Props): JSX.Element {
         taskID,
         taskMode,
         bugTracker,
-
-        installedAutoAnnotation,
-        installedTFAnnotation,
-        installedTFSegmentation,
         inferenceIsActive,
-
         dumpers,
         loaders,
-        exporters,
         onClickMenu,
         dumpActivities,
         exportActivities,
         loadActivity,
     } = props;
-
-    const renderModelRunner = installedAutoAnnotation
-        || installedTFAnnotation || installedTFSegmentation;
 
     let latestParams: ClickParam | null = null;
     function onClickMenuWrapper(params: ClickParam | null, file?: File): void {
@@ -109,53 +93,29 @@ export default function ActionsMenuComponent(props: Props): JSX.Element {
     }
 
     return (
-        <Menu
-            selectable={false}
-            className='cvat-actions-menu'
-            onClick={onClickMenuWrapper}
-        >
-            {
-                DumpSubmenu({
-                    taskMode,
-                    dumpers,
-                    dumpActivities,
-                    menuKey: Actions.DUMP_TASK_ANNO,
-                })
-            }
-            {
-                LoadSubmenu({
-                    loaders,
-                    loadActivity,
-                    onFileUpload: (file: File): void => {
-                        onClickMenuWrapper(null, file);
-                    },
-                    menuKey: Actions.LOAD_TASK_ANNO,
-                })
-            }
-            {
-                ExportSubmenu({
-                    exporters,
-                    exportActivities,
-                    menuKey: Actions.EXPORT_TASK_DATASET,
-                })
-            }
+        <Menu selectable={false} className='cvat-actions-menu' onClick={onClickMenuWrapper}>
+            {DumpSubmenu({
+                taskMode,
+                dumpers,
+                dumpActivities,
+                menuKey: Actions.DUMP_TASK_ANNO,
+            })}
+            {LoadSubmenu({
+                loaders,
+                loadActivity,
+                onFileUpload: (file: File): void => {
+                    onClickMenuWrapper(null, file);
+                },
+                menuKey: Actions.LOAD_TASK_ANNO,
+            })}
+            {ExportSubmenu({
+                exporters: dumpers,
+                exportActivities,
+                menuKey: Actions.EXPORT_TASK_DATASET,
+            })}
             {!!bugTracker && <Menu.Item key={Actions.OPEN_BUG_TRACKER}>Open bug tracker</Menu.Item>}
-            {
-                renderModelRunner
-                    && (
-                        <Menu.Item
-                            disabled={inferenceIsActive}
-                            key={Actions.RUN_AUTO_ANNOTATION}
-                        >
-                            Automatic annotation
-                        </Menu.Item>
-                    )
-            }
-           <Menu.Item
-                disabled={inferenceIsActive}
-                key={Actions.OPEN_NEW_ANNOTATION}
-            >
-                Execute training Workflow
+            <Menu.Item disabled={inferenceIsActive} key={Actions.RUN_AUTO_ANNOTATION}>
+                Automatic annotation
             </Menu.Item>
             <hr />
             <Menu.Item key={Actions.DELETE_TASK}>Delete</Menu.Item>

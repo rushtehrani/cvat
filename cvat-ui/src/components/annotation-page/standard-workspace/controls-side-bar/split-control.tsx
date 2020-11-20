@@ -13,34 +13,33 @@ import { ActiveControl } from 'reducers/interfaces';
 interface Props {
     canvasInstance: Canvas;
     activeControl: ActiveControl;
-
+    switchSplitShortcut: string;
     splitTrack(enabled: boolean): void;
 }
 
 function SplitControl(props: Props): JSX.Element {
-    const {
-        activeControl,
-        canvasInstance,
-        splitTrack,
-    } = props;
+    const { switchSplitShortcut, activeControl, canvasInstance, splitTrack } = props;
 
-    const dynamicIconProps = activeControl === ActiveControl.SPLIT
-        ? {
-            className: 'cvat-active-canvas-control',
-            onClick: (): void => {
-                canvasInstance.split({ enabled: false });
-                splitTrack(false);
-            },
-        } : {
-            onClick: (): void => {
-                canvasInstance.cancel();
-                canvasInstance.split({ enabled: true });
-                splitTrack(true);
-            },
-        };
+    const dynamicIconProps =
+        activeControl === ActiveControl.SPLIT
+            ? {
+                  className: 'cvat-split-track-control cvat-active-canvas-control',
+                  onClick: (): void => {
+                      canvasInstance.split({ enabled: false });
+                      splitTrack(false);
+                  },
+              }
+            : {
+                  className: 'cvat-split-track-control',
+                  onClick: (): void => {
+                      canvasInstance.cancel();
+                      canvasInstance.split({ enabled: true });
+                      splitTrack(true);
+                  },
+              };
 
     return (
-        <Tooltip title='Split a track' placement='right'>
+        <Tooltip title={`Split a track ${switchSplitShortcut}`} placement='right' mouseLeaveDelay={0}>
             <Icon {...dynamicIconProps} component={SplitIcon} />
         </Tooltip>
     );

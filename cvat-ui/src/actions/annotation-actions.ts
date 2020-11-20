@@ -2,13 +2,8 @@
 //
 // SPDX-License-Identifier: MIT
 
-import {
-    AnyAction,
-    Dispatch,
-    ActionCreator,
-    Store,
-} from 'redux';
-import { ThunkAction } from 'redux-thunk';
+import { AnyAction, Dispatch, ActionCreator, Store } from 'redux';
+import { ThunkAction } from 'utils/redux';
 
 import {
     CombinedState,
@@ -20,12 +15,14 @@ import {
     Rotation,
     ContextMenuType,
     Workspace,
+    Model,
 } from 'reducers/interfaces';
 
 import getCore from 'cvat-core-wrapper';
 import logger, { LogType } from 'cvat-logger';
 import { RectDrawingMethod } from 'cvat-canvas-wrapper';
 import { getCVATStore } from 'cvat-store';
+import { MutableRefObject } from 'react';
 
 interface AnnotationsParameters {
     filters: string[];
@@ -52,22 +49,14 @@ function receiveAnnotationsParameters(): AnnotationsParameters {
     const state: CombinedState = getStore().getState();
     const {
         annotation: {
-            annotations: {
-                filters,
-            },
+            annotations: { filters },
             player: {
-                frame: {
-                    number: frame,
-                },
+                frame: { number: frame },
             },
-            job: {
-                instance: jobInstance,
-            },
+            job: { instance: jobInstance },
         },
         settings: {
-            workspace: {
-                showAllInterpolationTracks,
-            },
+            workspace: { showAllInterpolationTracks },
         },
     } = state;
 
@@ -95,11 +84,17 @@ async function jobInfoGenerator(job: any): Promise<Record<string, number>> {
     const { total } = await job.annotations.statistics();
     return {
         'frame count': job.stopFrame - job.startFrame + 1,
-        'track count': total.rectangle.shape + total.rectangle.track
-            + total.polygon.shape + total.polygon.track
-            + total.polyline.shape + total.polyline.track
-            + total.points.shape + total.points.track
-            + total.cuboid.shape + total.cuboid.track,
+        'track count':
+            total.rectangle.shape +
+            total.rectangle.track +
+            total.polygon.shape +
+            total.polygon.track +
+            total.polyline.shape +
+            total.polyline.track +
+            total.points.shape +
+            total.points.track +
+            total.cuboid.shape +
+            total.cuboid.track,
         'object count': total.total,
         'box count': total.rectangle.shape + total.rectangle.track,
         'polygon count': total.polygon.shape + total.polygon.track,
@@ -148,8 +143,6 @@ export enum AnnotationActionTypes {
     GROUP_ANNOTATIONS_FAILED = 'GROUP_ANNOTATIONS_FAILED',
     SPLIT_ANNOTATIONS_SUCCESS = 'SPLIT_ANNOTATIONS_SUCCESS',
     SPLIT_ANNOTATIONS_FAILED = 'SPLIT_ANNOTATIONS_FAILED',
-    CHANGE_LABEL_COLOR_SUCCESS = 'CHANGE_LABEL_COLOR_SUCCESS',
-    CHANGE_LABEL_COLOR_FAILED = 'CHANGE_LABEL_COLOR_FAILED',
     UPDATE_TAB_CONTENT_HEIGHT = 'UPDATE_TAB_CONTENT_HEIGHT',
     COLLAPSE_SIDEBAR = 'COLLAPSE_SIDEBAR',
     COLLAPSE_APPEARANCE = 'COLLAPSE_APPEARANCE',
@@ -186,19 +179,15 @@ export enum AnnotationActionTypes {
     SWITCH_Z_LAYER = 'SWITCH_Z_LAYER',
     ADD_Z_LAYER = 'ADD_Z_LAYER',
     SEARCH_ANNOTATIONS_FAILED = 'SEARCH_ANNOTATIONS_FAILED',
+    SEARCH_EMPTY_FRAME_FAILED = 'SEARCH_EMPTY_FRAME_FAILED',
     CHANGE_WORKSPACE = 'CHANGE_WORKSPACE',
     SAVE_LOGS_SUCCESS = 'SAVE_LOGS_SUCCESS',
     SAVE_LOGS_FAILED = 'SAVE_LOGS_FAILED',
-    TRACKER_SETTINGS = 'TRACKER_SETTINGS',
-    RESET_TRACKER_SETTINGS = 'RESET_TRACKER_SETTINGS',
-    CHECK_ANNOTATION = 'CHECK_ANNOTATION',
-    DO_TRACKING = 'DO_TRACKING',
-    DO_TRACKING_SUCCESS = 'DO_TRACKING_SUCCESS',
-    DO_TRACKING_FAILURE = 'DO_TRACKING_FAILURE',
+    INTERACT_WITH_CANVAS = 'INTERACT_WITH_CANVAS',
+    SET_AI_TOOLS_REF = 'SET_AI_TOOLS_REF',
 }
 
-export function saveLogsAsync():
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function saveLogsAsync(): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>) => {
         try {
             await logger.save();
@@ -242,17 +231,11 @@ export function switchZLayer(cur: number): AnyAction {
     };
 }
 
-export function fetchAnnotationsAsync(): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function fetchAnnotationsAsync(): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
-            const {
-                filters,
-                frame,
-                showAllInterpolationTracks,
-                jobInstance,
-            } = receiveAnnotationsParameters();
-            const states = await jobInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const { filters, frame, showAllInterpolationTracks, jobInstance } = receiveAnnotationsParameters();
+            const states = await jobInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             const [minZ, maxZ] = computeZRange(states);
 
             dispatch({
@@ -314,8 +297,7 @@ export function updateCanvasContextMenu(
     };
 }
 
-export function removeAnnotationsAsync(sessionInstance: any):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function removeAnnotationsAsync(sessionInstance: any): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             await sessionInstance.annotations.clear();
@@ -339,8 +321,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function uploadJobAnnotationsAsync(job: any, loader: any, file: File):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function uploadJobAnnotationsAsync(job: any, loader: any, file: File): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const state: CombinedState = getStore().getState();
@@ -364,11 +345,9 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
             const frame = state.annotation.player.frame.number;
             await job.annotations.upload(file, loader);
 
-            await job.logger.log(
-                LogType.uploadAnnotations, {
-                    ...(await jobInfoGenerator(job)),
-                },
-            );
+            await job.logger.log(LogType.uploadAnnotations, {
+                ...(await jobInfoGenerator(job)),
+            });
 
             await job.annotations.clear(true);
             await job.actions.clear();
@@ -410,8 +389,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function changeJobStatusAsync(jobInstance: any, status: string):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function changeJobStatusAsync(jobInstance: any, status: string): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         const oldStatus = jobInstance.status;
         try {
@@ -441,8 +419,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function collectStatisticsAsync(sessionInstance: any):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function collectStatisticsAsync(sessionInstance: any): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             dispatch({
@@ -478,29 +455,22 @@ export function showStatistics(visible: boolean): AnyAction {
     };
 }
 
-export function propagateObjectAsync(
-    sessionInstance: any,
-    objectState: any,
-    from: number,
-    to: number,
-): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function propagateObjectAsync(sessionInstance: any, objectState: any, from: number, to: number): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const copy = {
                 attributes: objectState.attributes,
                 points: objectState.points,
                 occluded: objectState.occluded,
-                objectType: objectState.objectType !== ObjectType.TRACK
-                    ? objectState.objectType : ObjectType.SHAPE,
+                objectType: objectState.objectType !== ObjectType.TRACK ? objectState.objectType : ObjectType.SHAPE,
                 shapeType: objectState.shapeType,
                 label: objectState.label,
                 zOrder: objectState.zOrder,
                 frame: from,
+                source: objectState.source,
             };
 
-            await sessionInstance.logger.log(
-                LogType.propagateObject, { count: to - from + 1 },
-            );
+            await sessionInstance.logger.log(LogType.propagateObject, { count: to - from + 1 });
             const states = [];
             for (let frame = from; frame <= to; frame++) {
                 copy.frame = frame;
@@ -547,8 +517,7 @@ export function changePropagateFrames(frames: number): AnyAction {
     };
 }
 
-export function removeObjectAsync(sessionInstance: any, objectState: any, force: boolean):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function removeObjectAsync(sessionInstance: any, objectState: any, force: boolean): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             await sessionInstance.logger.log(LogType.deleteObject, { count: 1 });
@@ -609,10 +578,7 @@ export function selectObjects(selectedStatesID: number[]): AnyAction {
     };
 }
 
-export function activateObject(
-    activatedStateID: number | null,
-    activatedAttributeID: number | null,
-): AnyAction {
+export function activateObject(activatedStateID: number | null, activatedAttributeID: number | null): AnyAction {
     return {
         type: AnnotationActionTypes.ACTIVATE_OBJECT,
         payload: {
@@ -664,8 +630,7 @@ export function switchPlay(playing: boolean): AnyAction {
     };
 }
 
-export function changeFrameAsync(toFrame: number, fillBuffer?: boolean, frameStep?: number):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function changeFrameAsync(toFrame: number, fillBuffer?: boolean, frameStep?: number): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         const state: CombinedState = getStore().getState();
         const { instance: job } = state.annotation.job;
@@ -701,23 +666,21 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
                 payload: {},
             });
 
-            await job.logger.log(
-                LogType.changeFrame, {
-                    from: frame,
-                    to: toFrame,
-                },
-            );
+            await job.logger.log(LogType.changeFrame, {
+                from: frame,
+                to: toFrame,
+            });
             const data = await job.frames.get(toFrame, fillBuffer, frameStep);
             const states = await job.annotations.get(toFrame, showAllInterpolationTracks, filters);
             const [minZ, maxZ] = computeZRange(states);
             const currentTime = new Date().getTime();
             let frameSpeed;
             switch (state.settings.player.frameSpeed) {
-                case (FrameSpeed.Fast): {
+                case FrameSpeed.Fast: {
                     frameSpeed = (FrameSpeed.Fast as number) / 2;
                     break;
                 }
-                case (FrameSpeed.Fastest): {
+                case FrameSpeed.Fastest: {
                     frameSpeed = (FrameSpeed.Fastest as number) / 3;
                     break;
                 }
@@ -725,8 +688,10 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
                     frameSpeed = state.settings.player.frameSpeed as number;
                 }
             }
-            const delay = Math.max(0, Math.round(1000 / frameSpeed)
-                - currentTime + (state.annotation.player.frame.changeTime as number));
+            const delay = Math.max(
+                0,
+                Math.round(1000 / frameSpeed) - currentTime + (state.annotation.player.frame.changeTime as number),
+            );
 
             dispatch({
                 type: AnnotationActionTypes.CHANGE_FRAME_SUCCESS,
@@ -756,8 +721,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function undoActionAsync(sessionInstance: any, frame: number):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function undoActionAsync(sessionInstance: any, frame: number): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const state = getStore().getState();
@@ -765,17 +729,20 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
 
             // TODO: use affected IDs as an optimization
             const [undo] = state.annotation.annotations.history.undo.slice(-1);
-            const undoLog = await sessionInstance.logger.log(LogType.undoAction, {
-                name: undo[0],
-                frame: undo[1],
-                count: 1,
-            }, true);
+            const undoLog = await sessionInstance.logger.log(
+                LogType.undoAction,
+                {
+                    name: undo[0],
+                    frame: undo[1],
+                    count: 1,
+                },
+                true,
+            );
 
             dispatch(changeFrameAsync(undo[1]));
             await sessionInstance.actions.undo();
             const history = await sessionInstance.actions.get();
-            const states = await sessionInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const states = await sessionInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             const [minZ, maxZ] = computeZRange(states);
             await undoLog.close();
 
@@ -799,8 +766,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function redoActionAsync(sessionInstance: any, frame: number):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function redoActionAsync(sessionInstance: any, frame: number): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const state = getStore().getState();
@@ -808,16 +774,19 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
 
             // TODO: use affected IDs as an optimization
             const [redo] = state.annotation.annotations.history.redo.slice(-1);
-            const redoLog = await sessionInstance.logger.log(LogType.redoAction, {
-                name: redo[0],
-                frame: redo[1],
-                count: 1,
-            }, true);
+            const redoLog = await sessionInstance.logger.log(
+                LogType.redoAction,
+                {
+                    name: redo[0],
+                    frame: redo[1],
+                    count: 1,
+                },
+                true,
+            );
             dispatch(changeFrameAsync(redo[1]));
             await sessionInstance.actions.redo();
             const history = await sessionInstance.actions.get();
-            const states = await sessionInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const states = await sessionInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             const [minZ, maxZ] = computeZRange(states);
             await redoLog.close();
 
@@ -846,27 +815,20 @@ export function rotateCurrentFrame(rotation: Rotation): AnyAction {
     const {
         annotation: {
             player: {
-                frame: {
-                    number: frameNumber,
-                },
+                frame: { number: frameNumber },
                 frameAngles,
             },
             job: {
                 instance: job,
-                instance: {
-                    startFrame,
-                },
+                instance: { startFrame },
             },
         },
         settings: {
-            player: {
-                rotateAll,
-            },
+            player: { rotateAll },
         },
     } = state;
 
-    const frameAngle = (frameAngles[frameNumber - startFrame]
-        + (rotation === Rotation.CLOCKWISE90 ? 90 : 270)) % 360;
+    const frameAngle = (frameAngles[frameNumber - startFrame] + (rotation === Rotation.CLOCKWISE90 ? 90 : 270)) % 360;
 
     job.logger.log(LogType.rotateImage, { angle: frameAngle });
 
@@ -912,24 +874,25 @@ export function confirmCanvasReady(): AnyAction {
     };
 }
 
-export function getJobAsync(
-    tid: number,
-    jid: number,
-    initialFrame: number,
-    initialFilters: string[],
-): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function closeJob(): ThunkAction {
+    return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
+        const { jobInstance } = receiveAnnotationsParameters();
+        if (jobInstance) {
+            await jobInstance.task.close();
+        }
+
+        dispatch({
+            type: AnnotationActionTypes.CLOSE_JOB,
+        });
+    };
+}
+
+export function getJobAsync(tid: number, jid: number, initialFrame: number, initialFilters: string[]): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const state: CombinedState = getStore().getState();
             const filters = initialFilters;
             const { showAllInterpolationTracks } = state.settings.workspace;
-
-            // Check if already loaded job is different from asking one
-            if (state.annotation.job.instance && state.annotation.job.instance.id !== jid) {
-                dispatch({
-                    type: AnnotationActionTypes.CLOSE_JOB,
-                });
-            }
 
             dispatch({
                 type: AnnotationActionTypes.GET_JOB,
@@ -939,10 +902,12 @@ export function getJobAsync(
             });
 
             const loadJobEvent = await logger.log(
-                LogType.loadJob, {
+                LogType.loadJob,
+                {
                     task_id: tid,
                     job_id: jid,
-                }, true,
+                },
+                true,
             );
 
             // Check state if the task is already there
@@ -956,8 +921,7 @@ export function getJobAsync(
             }
 
             // Finally get the job from the task
-            const job = task.jobs
-                .filter((_job: any) => _job.id === jid)[0];
+            const job = task.jobs.filter((_job: any) => _job.id === jid)[0];
             if (!job) {
                 throw new Error(`Task ${tid} doesn't contain the job ${jid}`);
             }
@@ -967,8 +931,7 @@ export function getJobAsync(
             // call first getting of frame data before rendering interface
             // to load and decode first chunk
             await frameData.data();
-            const states = await job.annotations
-                .get(frameNumber, showAllInterpolationTracks, filters);
+            const states = await job.annotations.get(frameNumber, showAllInterpolationTracks, filters);
             const [minZ, maxZ] = computeZRange(states);
             const colors = [...cvat.enums.colors];
 
@@ -1000,41 +963,9 @@ export function getJobAsync(
     };
 }
 
-export function checkAnnotationsAsync(taskId: number):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function saveAnnotationsAsync(sessionInstance: any): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
-        const baseUrl: string = cvat.config.backendAPI.slice(0, -7);
-        let {shapes} = await cvat.server.request(`${baseUrl}/api/v1/jobs/${taskId}/annotations`, {
-            method: 'GET',
-        });
-        let shapeObjects = shapes.map((shp: any) => {
-            return new cvat.classes.ObjectState(shp);
-        })
-        const state: CombinedState = getStore().getState();
-        const {
-            annotation: {
-                annotations: {
-                    states,
-                },
-            },
-        } = state;
-        states.forEach((shapeState: any) => {
-            let shapeExist = shapeObjects.find((shape: any) => shape.serverID == shapeState.serverID);
-            if(!!shapeExist) {
-                shapeObjects.push(shapeState);
-            }
-        });
-        dispatch({
-            type: AnnotationActionTypes.CHECK_ANNOTATION,
-            payload: shapeObjects,
-        });
-    };
-}
-
-export function saveAnnotationsAsync(sessionInstance: any):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
-    return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
-        const { filters, frame, showAllInterpolationTracks } = receiveAnnotationsParameters();
+        const { filters, showAllInterpolationTracks } = receiveAnnotationsParameters();
 
         dispatch({
             type: AnnotationActionTypes.SAVE_ANNOTATIONS,
@@ -1042,9 +973,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
         });
 
         try {
-            const saveJobEvent = await sessionInstance.logger.log(
-                LogType.saveJob, {}, true,
-            );
+            const saveJobEvent = await sessionInstance.logger.log(LogType.saveJob, {}, true);
 
             await sessionInstance.annotations.save((status: string) => {
                 dispatch({
@@ -1054,15 +983,12 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
                     },
                 });
             });
-
-            const states = await sessionInstance
-                .annotations.get(frame, showAllInterpolationTracks, filters);
             await saveJobEvent.close();
-            await sessionInstance.logger.log(
-                LogType.sendTaskInfo,
-                await jobInfoGenerator(sessionInstance),
-            );
+            await sessionInstance.logger.log(LogType.sendTaskInfo, await jobInfoGenerator(sessionInstance));
             dispatch(saveLogsAsync());
+
+            const { frame } = receiveAnnotationsParameters();
+            const states = await sessionInstance.annotations.get(frame, showAllInterpolationTracks, filters);
 
             dispatch({
                 type: AnnotationActionTypes.SAVE_ANNOTATIONS_SUCCESS,
@@ -1149,15 +1075,9 @@ export function splitTrack(enabled: boolean): AnyAction {
     };
 }
 
-export function updateAnnotationsAsync(statesToUpdate: any[]):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function updateAnnotationsAsync(statesToUpdate: any[]): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
-        const {
-            jobInstance,
-            filters,
-            frame,
-            showAllInterpolationTracks,
-        } = receiveAnnotationsParameters();
+        const { jobInstance, filters, frame, showAllInterpolationTracks } = receiveAnnotationsParameters();
 
         try {
             if (statesToUpdate.some((state: any): boolean => state.updateFlags.zOrder)) {
@@ -1165,8 +1085,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
                 dispatch(activateObject(null, null));
             }
 
-            const promises = statesToUpdate
-                .map((objectState: any): Promise<any> => objectState.save());
+            const promises = statesToUpdate.map((objectState: any): Promise<any> => objectState.save());
             const states = await Promise.all(promises);
             const history = await jobInstance.actions.get();
             const [minZ, maxZ] = computeZRange(states);
@@ -1181,8 +1100,7 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
                 },
             });
         } catch (error) {
-            const states = await jobInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const states = await jobInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             dispatch({
                 type: AnnotationActionTypes.UPDATE_ANNOTATIONS_FAILED,
                 payload: {
@@ -1194,14 +1112,12 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function createAnnotationsAsync(sessionInstance: any, frame: number, statesToCreate: any[]):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function createAnnotationsAsync(sessionInstance: any, frame: number, statesToCreate: any[]): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const { filters, showAllInterpolationTracks } = receiveAnnotationsParameters();
             await sessionInstance.annotations.put(statesToCreate);
-            const states = await sessionInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const states = await sessionInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             const history = await sessionInstance.actions.get();
 
             dispatch({
@@ -1222,14 +1138,12 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function mergeAnnotationsAsync(sessionInstance: any, frame: number, statesToMerge: any[]):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function mergeAnnotationsAsync(sessionInstance: any, frame: number, statesToMerge: any[]): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const { filters, showAllInterpolationTracks } = receiveAnnotationsParameters();
             await sessionInstance.annotations.merge(statesToMerge);
-            const states = await sessionInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const states = await sessionInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             const history = await sessionInstance.actions.get();
 
             dispatch({
@@ -1257,11 +1171,7 @@ export function resetAnnotationsGroup(): AnyAction {
     };
 }
 
-export function groupAnnotationsAsync(
-    sessionInstance: any,
-    frame: number,
-    statesToGroup: any[],
-): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function groupAnnotationsAsync(sessionInstance: any, frame: number, statesToGroup: any[]): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const { filters, showAllInterpolationTracks } = receiveAnnotationsParameters();
@@ -1274,8 +1184,7 @@ export function groupAnnotationsAsync(
             });
 
             await sessionInstance.annotations.group(statesToGroup, reset);
-            const states = await sessionInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const states = await sessionInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             const history = await sessionInstance.actions.get();
 
             dispatch({
@@ -1296,14 +1205,12 @@ export function groupAnnotationsAsync(
     };
 }
 
-export function splitAnnotationsAsync(sessionInstance: any, frame: number, stateToSplit: any):
-ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function splitAnnotationsAsync(sessionInstance: any, frame: number, stateToSplit: any): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         const { filters, showAllInterpolationTracks } = receiveAnnotationsParameters();
         try {
             await sessionInstance.annotations.split(stateToSplit, frame);
-            const states = await sessionInstance.annotations
-                .get(frame, showAllInterpolationTracks, filters);
+            const states = await sessionInstance.annotations.get(frame, showAllInterpolationTracks, filters);
             const history = await sessionInstance.actions.get();
 
             dispatch({
@@ -1324,48 +1231,12 @@ ThunkAction<Promise<void>, {}, {}, AnyAction> {
     };
 }
 
-export function changeLabelColorAsync(
-    sessionInstance: any,
-    frameNumber: number,
-    label: any,
-    color: string,
-): ThunkAction<Promise<void>, {}, {}, AnyAction> {
-    return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
-        try {
-            const { filters, showAllInterpolationTracks } = receiveAnnotationsParameters();
-            const updatedLabel = label;
-            updatedLabel.color = color;
-            const states = await sessionInstance.annotations
-                .get(frameNumber, showAllInterpolationTracks, filters);
-            const history = await sessionInstance.actions.get();
-
-            dispatch({
-                type: AnnotationActionTypes.CHANGE_LABEL_COLOR_SUCCESS,
-                payload: {
-                    label: updatedLabel,
-                    history,
-                    states,
-                },
-            });
-        } catch (error) {
-            dispatch({
-                type: AnnotationActionTypes.CHANGE_LABEL_COLOR_FAILED,
-                payload: {
-                    error,
-                },
-            });
-        }
-    };
-}
-
-export function changeGroupColorAsync(
-    group: number,
-    color: string,
-): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function changeGroupColorAsync(group: number, color: string): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         const state: CombinedState = getStore().getState();
-        const groupStates = state.annotation.annotations.states
-            .filter((_state: any): boolean => _state.group.id === group);
+        const groupStates = state.annotation.annotations.states.filter(
+            (_state: any): boolean => _state.group.id === group,
+        );
         if (groupStates.length) {
             groupStates[0].group.color = color;
             dispatch(updateAnnotationsAsync(groupStates));
@@ -1375,11 +1246,7 @@ export function changeGroupColorAsync(
     };
 }
 
-export function searchAnnotationsAsync(
-    sessionInstance: any,
-    frameFrom: number,
-    frameTo: number,
-): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function searchAnnotationsAsync(sessionInstance: any, frameFrom: number, frameTo: number): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         try {
             const { filters } = receiveAnnotationsParameters();
@@ -1398,23 +1265,33 @@ export function searchAnnotationsAsync(
     };
 }
 
-export function pasteShapeAsync(): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function searchEmptyFrameAsync(sessionInstance: any, frameFrom: number, frameTo: number): ThunkAction {
+    return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
+        try {
+            const frame = await sessionInstance.annotations.searchEmpty(frameFrom, frameTo);
+            if (frame !== null) {
+                dispatch(changeFrameAsync(frame));
+            }
+        } catch (error) {
+            dispatch({
+                type: AnnotationActionTypes.SEARCH_EMPTY_FRAME_FAILED,
+                payload: {
+                    error,
+                },
+            });
+        }
+    };
+}
+
+export function pasteShapeAsync(): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         const {
-            canvas: {
-                instance: canvasInstance,
-            },
-            job: {
-                instance: jobInstance,
-            },
+            canvas: { instance: canvasInstance },
+            job: { instance: jobInstance },
             player: {
-                frame: {
-                    number: frameNumber,
-                },
+                frame: { number: frameNumber },
             },
-            drawing: {
-                activeInitialState: initialState,
-            },
+            drawing: { activeInitialState: initialState },
         } = getStore().getState().annotation;
 
         if (initialState) {
@@ -1457,22 +1334,35 @@ export function pasteShapeAsync(): ThunkAction<Promise<void>, {}, {}, AnyAction>
     };
 }
 
-export function repeatDrawShapeAsync(): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function interactWithCanvas(activeInteractor: Model, activeLabelID: number): AnyAction {
+    return {
+        type: AnnotationActionTypes.INTERACT_WITH_CANVAS,
+        payload: {
+            activeInteractor,
+            activeLabelID,
+        },
+    };
+}
+
+export function setAIToolsRef(ref: MutableRefObject<any>): AnyAction {
+    return {
+        type: AnnotationActionTypes.SET_AI_TOOLS_REF,
+        payload: {
+            aiToolsRef: ref,
+        },
+    };
+}
+
+export function repeatDrawShapeAsync(): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
         const {
-            canvas: {
-                instance: canvasInstance,
-            },
-            job: {
-                labels,
-                instance: jobInstance,
-            },
+            canvas: { instance: canvasInstance },
+            job: { labels, instance: jobInstance },
             player: {
-                frame: {
-                    number: frameNumber,
-                },
+                frame: { number: frameNumber },
             },
             drawing: {
+                activeInteractor,
                 activeObjectType,
                 activeLabelID,
                 activeShapeType,
@@ -1482,6 +1372,25 @@ export function repeatDrawShapeAsync(): ThunkAction<Promise<void>, {}, {}, AnyAc
         } = getStore().getState().annotation;
 
         let activeControl = ActiveControl.CURSOR;
+        if (activeInteractor) {
+            if (activeInteractor.type === 'tracker') {
+                canvasInstance.interact({
+                    enabled: true,
+                    shapeType: 'rectangle',
+                });
+                dispatch(interactWithCanvas(activeInteractor, activeLabelID));
+            } else {
+                canvasInstance.interact({
+                    enabled: true,
+                    shapeType: 'points',
+                    ...activeInteractor.params.canvas,
+                });
+                dispatch(interactWithCanvas(activeInteractor, activeLabelID));
+            }
+
+            return;
+        }
+
         if (activeShapeType === ShapeType.RECTANGLE) {
             activeControl = ActiveControl.DRAW_RECTANGLE;
         } else if (activeShapeType === ShapeType.POINTS) {
@@ -1515,54 +1424,50 @@ export function repeatDrawShapeAsync(): ThunkAction<Promise<void>, {}, {}, AnyAc
                 rectDrawingMethod: activeRectDrawingMethod,
                 numberOfPoints: activeNumOfPoints,
                 shapeType: activeShapeType,
-                crosshair: activeShapeType === ShapeType.RECTANGLE,
+                crosshair: [ShapeType.RECTANGLE, ShapeType.CUBOID].includes(activeShapeType),
             });
         }
     };
 }
-export function trackerSettings(name: string, value: string | number): AnyAction {
-    return {
-        type: AnnotationActionTypes.TRACKER_SETTINGS,
-        payload: {
-            name,
-            value,
-        },
-    };
-}
 
-export function resetTrackerSettings(): AnyAction {
-    return {
-        type: AnnotationActionTypes.RESET_TRACKER_SETTINGS,
-    };
-}
-
-export function doTracking(body: any, taskId: string): ThunkAction<Promise<void>, {}, {}, AnyAction> {
+export function redrawShapeAsync(): ThunkAction {
     return async (dispatch: ActionCreator<Dispatch>): Promise<void> => {
-        dispatch({
-            type: AnnotationActionTypes.DO_TRACKING,
-        });
-        const baseUrl = cvat.config.backendAPI.slice(0, -7);
-        try {
-            cvat.server.request(`${baseUrl}/tracking/track/${taskId}`, {
-                method: 'POST',
-                data: JSON.stringify(body),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }).then((response: any) => {
+        const {
+            annotations: { activatedStateID, states },
+            canvas: { instance: canvasInstance },
+        } = getStore().getState().annotation;
+
+        if (activatedStateID !== null) {
+            const [state] = states.filter((_state: any): boolean => _state.clientID === activatedStateID);
+            if (state && state.objectType !== ObjectType.TAG) {
+                let activeControl = ActiveControl.CURSOR;
+                if (state.shapeType === ShapeType.RECTANGLE) {
+                    activeControl = ActiveControl.DRAW_RECTANGLE;
+                } else if (state.shapeType === ShapeType.POINTS) {
+                    activeControl = ActiveControl.DRAW_POINTS;
+                } else if (state.shapeType === ShapeType.POLYGON) {
+                    activeControl = ActiveControl.DRAW_POLYGON;
+                } else if (state.shapeType === ShapeType.POLYLINE) {
+                    activeControl = ActiveControl.DRAW_POLYLINE;
+                } else if (state.shapeType === ShapeType.CUBOID) {
+                    activeControl = ActiveControl.DRAW_CUBOID;
+                }
+
                 dispatch({
-                    type: AnnotationActionTypes.DO_TRACKING_SUCCESS,
+                    type: AnnotationActionTypes.REPEAT_DRAW_SHAPE,
+                    payload: {
+                        activeControl,
+                    },
                 });
-            })
-            .catch((err: any) => {
-                dispatch({
-                    type: AnnotationActionTypes.DO_TRACKING_FAILURE,
+
+                canvasInstance.cancel();
+                canvasInstance.draw({
+                    enabled: true,
+                    redraw: activatedStateID,
+                    shapeType: state.shapeType,
+                    crosshair: [ShapeType.RECTANGLE, ShapeType.CUBOID].includes(state.shapeType),
                 });
-            })
-        } catch(error) {
-            dispatch({
-                type: AnnotationActionTypes.DO_TRACKING_FAILURE,
-            });
+            }
         }
     };
 }

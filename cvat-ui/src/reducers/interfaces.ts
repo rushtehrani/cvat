@@ -4,6 +4,7 @@
 
 import { ExtendedKeyMapOptions } from 'react-hotkeys';
 import { Canvas, RectDrawingMethod } from 'cvat-canvas-wrapper';
+import { MutableRefObject } from 'react';
 
 export type StringObject = {
     [index: string]: string;
@@ -13,6 +14,11 @@ export interface AuthState {
     initialized: boolean;
     fetching: boolean;
     user: any;
+    authActionsFetching: boolean;
+    authActionsInitialized: boolean;
+    showChangePasswordDialog: boolean;
+    allowChangePassword: boolean;
+    allowResetPassword: boolean;
 }
 
 export interface TasksQuery {
@@ -35,6 +41,7 @@ export interface Task {
 export interface TasksState {
     initialized: boolean;
     fetching: boolean;
+    updating: boolean;
     hideEmpty: boolean;
     gettingQuery: TasksQuery;
     count: number;
@@ -56,6 +63,7 @@ export interface TasksState {
             [tid: number]: boolean; // deleted (deleting if in dictionary)
         };
         creates: {
+            taskId: number | null;
             status: string;
             error: string;
         };
@@ -63,8 +71,7 @@ export interface TasksState {
 }
 
 export interface FormatsState {
-    annotationFormats: any[];
-    datasetFormats: any[];
+    annotationFormats: any;
     fetching: boolean;
     initialized: boolean;
 }
@@ -72,26 +79,18 @@ export interface FormatsState {
 // eslint-disable-next-line import/prefer-default-export
 export enum SupportedPlugins {
     GIT_INTEGRATION = 'GIT_INTEGRATION',
-    AUTO_ANNOTATION = 'AUTO_ANNOTATION',
-    TF_ANNOTATION = 'TF_ANNOTATION',
-    TF_SEGMENTATION = 'TF_SEGMENTATION',
-    DEXTR_SEGMENTATION = 'DEXTR_SEGMENTATION',
     ANALYTICS = 'ANALYTICS',
-    REID = 'REID',
+    MODELS = 'MODELS',
 }
+
+export type PluginsList = {
+    [name in SupportedPlugins]: boolean;
+};
 
 export interface PluginsState {
     fetching: boolean;
     initialized: boolean;
-    list: {
-        [name in SupportedPlugins]: boolean;
-    };
-}
-
-export interface UsersState {
-    users: any[];
-    fetching: boolean;
-    initialized: boolean;
+    list: PluginsList;
 }
 
 export interface AboutState {
@@ -105,7 +104,21 @@ export interface AboutState {
     initialized: boolean;
 }
 
-export interface ShareFileInfo { // get this data from cvat-core
+export interface UserAgreement {
+    name: string;
+    displayText: string;
+    url: string;
+    required: boolean;
+}
+
+export interface UserAgreementsState {
+    list: UserAgreement[];
+    fetching: boolean;
+    initialized: boolean;
+}
+
+export interface ShareFileInfo {
+    // get this data from cvat-core
     name: string;
     type: 'DIR' | 'REG';
 }
@@ -121,14 +134,15 @@ export interface ShareState {
 }
 
 export interface Model {
-    id: number | null; // null for preinstalled models
-    ownerID: number | null; // null for preinstalled models
+    id: string;
     name: string;
-    primary: boolean;
-    uploadDate: string;
-    updateDate: string;
     labels: string[];
     framework: string;
+    description: string;
+    type: string;
+    params: {
+        canvas: Record<string, unknown>;
+    };
 }
 
 export enum RQStatus {
@@ -139,52 +153,26 @@ export enum RQStatus {
     failed = 'failed',
 }
 
-export enum ModelType {
-    OPENVINO = 'openvino',
-    RCNN = 'rcnn',
-    MASK_RCNN = 'mask_rcnn',
-}
-
 export interface ActiveInference {
     status: RQStatus;
     progress: number;
     error: string;
-    modelType: ModelType;
+    id: string;
 }
 
 export interface ModelsState {
     initialized: boolean;
     fetching: boolean;
     creatingStatus: string;
-    models: Model[];
+    interactors: Model[];
+    detectors: Model[];
+    trackers: Model[];
+    reid: Model[];
     inferences: {
         [index: number]: ActiveInference;
     };
     visibleRunWindows: boolean;
     activeRunTask: any;
-    visibleNewAnnotationWindows: boolean;
-    activeNewAnnotationTask: any;
-    baseModelList: string[];
-    fetchingWorkflowTemplates: boolean;
-    workflowTemplates: {
-        uid: string;
-        version: string;
-    }[];
-}
-
-export interface CsvModelFiles {
-    [key: string]: string | File;
-    csv: string | File;
-    pb: string | File;
-    h5: string | File;
-}
-
-export interface ModelFiles {
-    [key: string]: string | File;
-    xml: string | File;
-    bin: string | File;
-    py: string | File;
-    json: string | File;
 }
 
 export interface ErrorState {
@@ -199,6 +187,10 @@ export interface NotificationsState {
             login: null | ErrorState;
             logout: null | ErrorState;
             register: null | ErrorState;
+            changePassword: null | ErrorState;
+            requestPasswordReset: null | ErrorState;
+            resetPassword: null | ErrorState;
+            loadAuthActions: null | ErrorState;
         };
         tasks: {
             fetching: null | ErrorState;
@@ -222,9 +214,7 @@ export interface NotificationsState {
             fetching: null | ErrorState;
         };
         models: {
-            creating: null | ErrorState;
             starting: null | ErrorState;
-            deleting: null | ErrorState;
             fetching: null | ErrorState;
             canceling: null | ErrorState;
             metaFetching: null | ErrorState;
@@ -250,13 +240,15 @@ export interface NotificationsState {
             undo: null | ErrorState;
             redo: null | ErrorState;
             search: null | ErrorState;
+            searchEmptyFrame: null | ErrorState;
             savingLogs: null | ErrorState;
         };
         boundaries: {
             resetError: null | ErrorState;
         };
-
-        [index: string]: any;
+        userAgreements: {
+            fetching: null | ErrorState;
+        };
     };
     messages: {
         tasks: {
@@ -265,8 +257,12 @@ export interface NotificationsState {
         models: {
             inferenceDone: string;
         };
-
-        [index: string]: any;
+        auth: {
+            changePasswordDone: string;
+            registerDone: string;
+            requestPasswordResetDone: string;
+            resetPasswordDone: string;
+        };
     };
 }
 
@@ -283,6 +279,7 @@ export enum ActiveControl {
     GROUP = 'group',
     SPLIT = 'split',
     EDIT = 'edit',
+    AI_TOOLS = 'ai_tools',
 }
 
 export enum ShapeType {
@@ -306,7 +303,6 @@ export enum StatesOrdering {
 }
 
 export enum ContextMenuType {
-    CANVAS = 'canvas',
     CANVAS_SHAPE = 'canvas_shape',
     CANVAS_SHAPE_POINT = 'canvas_shape_point',
 }
@@ -356,6 +352,7 @@ export interface AnnotationState {
         frameAngles: number[];
     };
     drawing: {
+        activeInteractor?: Model;
         activeShapeType: ShapeType;
         activeRectDrawingMethod?: RectDrawingMethod;
         activeNumOfPoints?: number;
@@ -368,6 +365,7 @@ export interface AnnotationState {
         activatedStateID: number | null;
         activatedAttributeID: number | null;
         collapsed: Record<number, boolean>;
+        collapsedAll: boolean;
         states: any[];
         filters: string[];
         filtersHistory: string[];
@@ -395,28 +393,18 @@ export interface AnnotationState {
         visible: boolean;
         data: any;
     };
-    tracker: {
-        tracker_type: string;
-        tracker_until: string;
-        tracker_frame_number: number;
-        tracking: boolean;
-    };
     colors: any[];
     sidebarCollapsed: boolean;
     appearanceCollapsed: boolean;
     tabContentHeight: number;
     workspace: Workspace;
-}
-
-export enum TrackerInputs {
-    tracker_type = 'tracker_type',
-    tracker_until = 'tracker_until',
-    tracker_frame_number = 'tracker_frame_number',
+    aiToolsRef: MutableRefObject<any>;
 }
 
 export enum Workspace {
     STANDARD = 'Standard',
     ATTRIBUTE_ANNOTATION = 'Attribute annotation',
+    TAG_ANNOTATION = 'Tag annotation',
 }
 
 export enum GridColor {
@@ -443,6 +431,7 @@ export enum ColorBy {
 }
 
 export interface PlayerSettingsState {
+    canvasBackgroundColor: string;
     frameStep: number;
     frameSpeed: FrameSpeed;
     resetZoom: boolean;
@@ -469,7 +458,8 @@ export interface ShapesSettingsState {
     colorBy: ColorBy;
     opacity: number;
     selectedOpacity: number;
-    blackBorders: boolean;
+    outlined: boolean;
+    outlineColor: string;
     showBitmap: boolean;
     showProjections: boolean;
 }
@@ -478,6 +468,7 @@ export interface SettingsState {
     shapes: ShapesSettingsState;
     workspace: WorkspaceSettingsState;
     player: PlayerSettingsState;
+    showDialog: boolean;
 }
 
 export interface ShortcutsState {
@@ -486,17 +477,26 @@ export interface ShortcutsState {
     normalizedKeyMap: Record<string, string>;
 }
 
+export interface MetaState {
+    initialized: boolean;
+    fetching: boolean;
+    showTasksButton: boolean;
+    showAnalyticsButton: boolean;
+    showModelsButton: boolean;
+}
+
 export interface CombinedState {
     auth: AuthState;
     tasks: TasksState;
-    users: UsersState;
     about: AboutState;
     share: ShareState;
     formats: FormatsState;
+    userAgreements: UserAgreementsState;
     plugins: PluginsState;
     models: ModelsState;
     notifications: NotificationsState;
     annotation: AnnotationState;
     settings: SettingsState;
     shortcuts: ShortcutsState;
+    meta: MetaState;
 }

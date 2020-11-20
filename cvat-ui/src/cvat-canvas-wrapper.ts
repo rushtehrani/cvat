@@ -7,17 +7,14 @@ import {
     CanvasMode,
     CanvasVersion,
     RectDrawingMethod,
+    CuboidDrawingMethod,
+    InteractionData as InteractionDataType,
+    InteractionResult as InteractionResultType,
 } from 'cvat-canvas/src/typescript/canvas';
 
-function isAbleToChangeFrame(canvas: Canvas): boolean {
-    return ![CanvasMode.DRAG, CanvasMode.EDIT, CanvasMode.RESIZE]
-        .includes(canvas.mode());
-}
+export type InteractionData = InteractionDataType;
+export type InteractionResult = InteractionResultType;
 
 export {
-    Canvas,
-    CanvasMode,
-    CanvasVersion,
-    RectDrawingMethod,
-    isAbleToChangeFrame,
+    Canvas, CanvasMode, CanvasVersion, RectDrawingMethod, CuboidDrawingMethod,
 };
