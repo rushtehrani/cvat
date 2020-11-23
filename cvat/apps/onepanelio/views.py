@@ -145,14 +145,6 @@ def get_object_counts(request, pk):
     data = annotation.get_task_data_custom(pk, request.user)
     return Response(data)
 
-def generate_output_path(uid, pk):
-    time = datetime.now()
-    stamp = time.strftime("%m%d%Y%H%M%S")
-    db_task = TaskModel.objects.get(pk=pk)
-    dir_name = db_task.name + '/' + form_data['uid'] + '/' + stamp
-    prefix = os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output')
-    output = prefix + '/' + dir_name + '/'
-    return Response({'name':output})
 
 def generate_dataset_path(uid, pk):
     time = datetime.now()
