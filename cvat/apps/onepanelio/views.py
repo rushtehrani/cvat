@@ -39,9 +39,9 @@ def authenticate_cloud_storage():
     """
     with open("/etc/onepanel/artifactRepository") as file:
         data = yaml.load(file, Loader=yaml.FullLoader)
-    
+
     cloud_provider = None
-    if "s3" in list(data.keys()):  
+    if "s3" in list(data.keys()):
         cloud_provider = "s3"
     elif "gcs" in list(data.keys()):
         cloud_provider = "gcs"
@@ -52,7 +52,7 @@ def authenticate_cloud_storage():
 
         with open(os.path.join("/etc/onepanel", data[cloud_provider]['accessKeySecret']['key'])) as file:
             access_key = yaml.load(file, Loader=yaml.FullLoader)
-            
+
         with open(os.path.join("/etc/onepanel", data[cloud_provider]['secretKeySecret']['key'])) as file:
             secret_key = yaml.load(file, Loader=yaml.FullLoader)
 
@@ -84,7 +84,6 @@ def get_available_dump_formats(request):
 def get_workflow_templates(request):
 
     configuration = onepanel_authorize(request)
-    
     # Enter a context with an instance of the API client
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
@@ -172,12 +171,12 @@ def get_model_keys(request):
         checkpoints = [i[0] for i in os.walk('/home/django/share/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')) if form_data['uid']+'/' in i[0]]
         if form_data['sysRefModel']:
             checkpoint_paths = [os.path.join(*[os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')]+c.split("/")[-5:]) for c in checkpoints]
-            checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 6 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')) and form_data['sysRefModel'] in c] 
+            checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 6 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output')) and form_data['sysRefModel'] in c]
         else:
             checkpoint_paths = [os.path.join(*[os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')]+c.split("/")[-4:]) for c in checkpoints]
-            checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 5 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output'))] 
+            checkpoint_path_filtered = [c for c in checkpoint_paths if len(c.split("/")) == 5 and c.startswith(os.getenv('ONEPANEL_SYNC_DIRECTORY', 'workflow-data')+'/'+os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR', 'output'))]
         checkpoint_path_ordered = ['/home/django/share/'+'/'.join(i.split('/')[1:]) for i in checkpoint_path_filtered]
-        checkpoint_path_ordered.sort(key=os.path.getmtime, reverse=True)        
+        checkpoint_path_ordered.sort(key=os.path.getmtime, reverse=True)
         return Response({'keys':checkpoint_path_ordered})
     except:
         return Response({'keys':[]})
@@ -189,9 +188,9 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
         TaskModel.objects.get(pk=uid), db_task.owner.username)
 
     # read artifactRepository to find out cloud provider and get access for upload
-    
+
     bucket_name, cloud_provider, endpoint = authenticate_cloud_storage()
-    
+
     data = DatumaroTask.get_export_formats()
     formats = {d['name']:d['tag'] for d in data}
     if dump_format not in formats.values():
@@ -204,7 +203,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
         project.export(dump_format, test_dir, save_images=True)
 
         if cloud_provider == "s3":
-            
+
             import boto3
             from botocore.exceptions import ClientError
 
@@ -214,7 +213,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
                 s3_client = boto3.client('s3', endpoint_url=endpoint)
             else:
                 s3_client = boto3.client('s3')
-          
+
             for root,dirs,files in os.walk(test_dir):
                 for file in files:
                     upload_dir = root.replace(test_dir, "")
@@ -223,7 +222,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
                     if not cloud_prefix.endswith("/"):
                         cloud_prefix += "/"
                     s3_client.upload_file(os.path.join(root,file),bucket_name,os.path.join(os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+cloud_prefix, upload_dir, file))
-          
+
         elif cloud_provider == "gcs":
             from google.cloud import storage
             storage_client = storage.Client()
@@ -238,7 +237,7 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
                         cloud_prefix += "/"
                     blob = bucket.blob(os.path.join(os.getenv('ONEPANEL_RESOURCE_NAMESPACE') + '/'+cloud_prefix, upload_dir, file))
                     blob.upload_from_filename(os.path.join(root, file))
-        
+
         elif cloud_provider == "az":
             pass
 
@@ -253,7 +252,7 @@ def create_annotation_model(request, pk):
         Executes workflow selected by User.
     """
     global all_parameters
-    all_parameter_names = [p['name'] for p in all_parameters] 
+    all_parameter_names = [p['name'] for p in all_parameters]
     db_task = TaskModel.objects.get(pk=pk)
     db_labels = db_task.label_set.prefetch_related('attributespec_set').all()
     db_labels = {db_label.id:db_label.name for db_label in db_labels}
@@ -261,7 +260,7 @@ def create_annotation_model(request, pk):
 
     form_data = request.data
     slogger.glob.info("Form data without preprocessing {} {}".format(form_data, type(form_data)))
- 
+
     # form_args = form_data['arguments']
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
@@ -275,10 +274,10 @@ def create_annotation_model(request, pk):
         output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template'] + '/' + form_data['parameters']['cvat-model']
     else:
         output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template']
-        
+
     if 'cvat-annotation-path' in all_parameter_names:
         dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
-   
+
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
 
@@ -288,13 +287,13 @@ def create_annotation_model(request, pk):
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
         api_instance = onepanel.core.api.WorkflowServiceApi(api_client)
-        namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') # str | 
+        namespace = os.getenv('ONEPANEL_RESOURCE_NAMESPACE') # str |
         params = []
         for p_name, p_value in form_data['parameters'].items():
             if p_name in ['cvat-annotation-path','cvat-output-path']:
                 continue
             params.append(Parameter(name=p_name, value=p_value))
-        
+
         if 'cvat-annotation-path' in all_parameter_names:
             params.append(Parameter(name='cvat-annotation-path', value=annotation_path))
         if 'cvat-output-path' in all_parameter_names:
@@ -306,9 +305,9 @@ def create_annotation_model(request, pk):
                 params.append(Parameter(name='cvat-num-classes', value=str(num_classes+1)))
             else:
                 params.append(Parameter(name='cvat-num-classes', value=str(num_classes)))
-        
+
         body = onepanel.core.api.CreateWorkflowExecutionBody(parameters=params,
-        workflow_template_uid = form_data['workflow_template'], labels=[{'key':'workspace-uid','value':os.getenv('ONEPANEL_RESOURCE_UID')},{'key':'cvat-job-id','value':str(pk)}]) 
+        workflow_template_uid = form_data['workflow_template'], labels=[{'key':'workspace-uid','value':os.getenv('ONEPANEL_RESOURCE_UID')},{'key':'cvat-job-id','value':str(pk)}])
         try:
             api_response = api_instance.create_workflow_execution(namespace, body)
             return Response(data=api_response.to_dict()['metadata'], status=status.HTTP_200_OK)
