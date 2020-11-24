@@ -186,10 +186,7 @@ def dump_training_data(uid, dump_format, cloud_prefix, request):
         file_path = os.path.join(temp_dir, dump_format)
         dm.task.export_task(uid,file_path,dump_format,None,True)
         if cloud_provider == "s3":
-
             import boto3
-            from botocore.exceptions import ClientError
-
             if endpoint != 's3.amazonaws.com':
                 if not endpoint.startswith('http'):
                     endpoint = 'https://'+endpoint
@@ -197,9 +194,9 @@ def dump_training_data(uid, dump_format, cloud_prefix, request):
             else:
                 s3_client = boto3.client('s3')
 
-            for root,dirs,files in os.walk(test_dir):
+            for root,dirs,files in os.walk(temp_dir):
                 for file in files:
-                    upload_dir = root.replace(test_dir, "")
+                    upload_dir = root.replace(temp_dir, "")
                     if upload_dir.startswith("/"):
                         upload_dir = upload_dir[1:]
                     if not cloud_prefix.endswith("/"):
@@ -211,9 +208,9 @@ def dump_training_data(uid, dump_format, cloud_prefix, request):
             storage_client = storage.Client()
             bucket = storage_client.bucket(bucket_name)
 
-            for root, dirs, files in os.walk(test_dir):
+            for root, dirs, files in os.walk(temp_dir):
                 for file in files:
-                    upload_dir = root.replace(test_dir, "")
+                    upload_dir = root.replace(temp_dir, "")
                     if upload_dir.startswith("/"):
                         upload_dir = upload_dir[1:]
                     if not cloud_prefix.endswith("/"):
@@ -223,7 +220,6 @@ def dump_training_data(uid, dump_format, cloud_prefix, request):
 
         elif cloud_provider == "az":
             pass
-
         else:
             raise ValueError("Invalid cloud provider! Should be from ['s3','gcs','az']")
 
