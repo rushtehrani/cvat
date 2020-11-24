@@ -10,9 +10,10 @@ from django.http import JsonResponse
 from django.http import HttpResponse, HttpResponseNotFound
 from rest_framework.response import Response
 
+import cvat.apps.dataset_manager as dm
 from cvat.apps.authentication.decorators import login_required
 from cvat.apps.onepanelio.models import OnepanelAuth
-from cvat.apps.engine import annotation
+from cvat.apps.dataset_manager import annotation, views
 import cvat.apps.dataset_manager.task as DatumaroTask
 from cvat.apps.engine.models import Task as TaskModel
 from cvat.apps.engine.log import slogger
@@ -74,7 +75,7 @@ def authenticate_cloud_storage():
 
 @api_view(['POST'])
 def get_available_dump_formats(request):
-    data = DatumaroTask.get_export_formats()
+    data = dm.views.get_export_formats()
     formats = []
     for d in data:
         formats.append({'name':d['name'], 'tag':d['tag']})
@@ -132,19 +133,17 @@ def get_node_pool(request):
     with onepanel.core.api.ApiClient(configuration) as api_client:
         # Create an instance of the API class
         api_instance = onepanel.core.api.ConfigServiceApi(api_client)
-    
+
     try:
         api_response = api_instance.get_config()
-        return JsonResponse({'node_pool':api_response.to_dict()['node_pool']})    
+        return JsonResponse({'node_pool':api_response.to_dict()['node_pool']})
     except ApiException as e:
         print("Exception when calling ConfigServiceApi->get_config: %s\n" % e)
 
 @api_view(['POST'])
 def get_object_counts(request, pk):
-    # db_task = self.get_object()
-    data = annotation.get_task_data_custom(pk, request.user)
+    data = dm.task.get_task_data(pk)
     return Response(data)
-
 
 def generate_dataset_path(uid, pk):
     time = datetime.now()
@@ -174,26 +173,18 @@ def get_model_keys(request):
         return Response({'keys':[]})
 
 
-def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
-
-    project = DatumaroTask.TaskProject.from_task(
-        TaskModel.objects.get(pk=uid), db_task.owner.username)
-
+def dump_training_data(uid, dump_format, cloud_prefix, request):
     # read artifactRepository to find out cloud provider and get access for upload
-
     bucket_name, cloud_provider, endpoint = authenticate_cloud_storage()
 
-    data = DatumaroTask.get_export_formats()
+    data = dm.views.get_export_formats()
     formats = {d['name']:d['tag'] for d in data}
     if dump_format not in formats.values():
         dump_format = "cvat_tfrecord"
 
-    # dataset_name = os.getenv('ONEPANEL_RESOURCE_UID').replace(' ', '_') + '_' + db_task.name + "_" + dump_format + "_" + stamp
-
-    with tempfile.TemporaryDirectory() as test_dir:
-
-        project.export(dump_format, test_dir, save_images=True)
-
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file_path = os.path.join(temp_dir, dump_format)
+        dm.task.export_task(uid,file_path,dump_format,None,True)
         if cloud_provider == "s3":
 
             import boto3
@@ -268,7 +259,7 @@ def create_annotation_model(request, pk):
         output_path = os.getenv('ONEPANEL_SYNC_DIRECTORY' ,'workflow-data') + '/' + os.getenv('ONEPANEL_WORKFLOW_MODEL_DIR','output') + '/' + db_task.name + '/' + form_data['workflow_template']
 
     if 'cvat-annotation-path' in all_parameter_names:
-        dump_training_data(int(pk), db_task, stamp, form_data['dump_format'], annotation_path, request)
+        dump_training_data(int(pk), form_data['dump_format'], annotation_path, request)
 
     time = datetime.now()
     stamp = time.strftime("%m%d%Y%H%M%S")
