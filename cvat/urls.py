@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('cvat.apps.engine.urls')),
     path('django-rq/', include('django_rq.urls')),
+    path('auth/', include('cvat.apps.authentication.urls')),
     path('documentation/', include('cvat.apps.documentation.urls')),
 ]
 
@@ -40,3 +41,7 @@ if apps.is_installed('cvat.apps.lambda_manager'):
 
 if apps.is_installed('silk'):
     urlpatterns.append(path('profiler/', include('silk.urls')))
+
+# onepanelio
+if apps.is_installed('cvat.apps.onepanelio'):
+    urlpatterns.append(path('onepanelio/', include('cvat.apps.onepanelio.urls')))
