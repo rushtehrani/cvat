@@ -135,6 +135,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'cvat.apps.onepanelio.middleware.OnepanelCoreTokenAuthentication',
         'cvat.apps.authentication.auth.TokenAuthentication',
         'cvat.apps.authentication.auth.SignatureAuthentication',
         'rest_framework.authentication.SessionAuthentication',
@@ -169,6 +170,7 @@ REST_AUTH_REGISTER_SERIALIZERS = {
     'REGISTER_SERIALIZER': 'cvat.apps.restrictions.serializers.RestrictedRegisterSerializer',
 }
 
+INSTALLED_APPS += ['cvat.apps.onepanelio']
 REST_AUTH_SERIALIZERS = {
     'PASSWORD_RESET_SERIALIZER': 'cvat.apps.authentication.serializers.PasswordResetSerializerEx',
 }
@@ -185,6 +187,8 @@ MIDDLEWARE = [
     # FIXME
     # 'corsheaders.middleware.CorsPostCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Add the new middleware just after the default AuthenticationMiddleware that manages sessions and cookies
+    'cvat.apps.onepanelio.middleware.AutomaticUserLoginMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'dj_pagination.middleware.PaginationMiddleware',
@@ -225,6 +229,8 @@ LOGIN_URL = 'rest_login'
 LOGIN_REDIRECT_URL = '/'
 
 AUTHENTICATION_BACKENDS = [
+    'cvat.apps.onepanelio.backends.OnepanelIORestBackend',
+    'cvat.apps.onepanelio.backends.OnepanelIOBackend',
     'rules.permissions.ObjectPermissionBackend',
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
