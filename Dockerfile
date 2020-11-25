@@ -48,6 +48,8 @@ RUN apt-get update && \
         git \
         git-lfs \
         ssh \
+        nano \
+        vim \
         poppler-utils \
         curl && \
     python3 -m pip install --no-cache-dir -U pip==20.0.1 setuptools==49.6.0 wheel==0.35.1 && \
