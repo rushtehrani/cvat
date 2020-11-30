@@ -4,16 +4,14 @@
 
 from __future__ import print_function
 
-import os, json
+import os
 import tempfile
 from django.http import JsonResponse
-from django.http import HttpResponse, HttpResponseNotFound
 from rest_framework.response import Response
 
 import cvat.apps.dataset_manager as dm
-from cvat.apps.authentication.decorators import login_required
 from cvat.apps.onepanelio.models import OnepanelAuth
-from cvat.apps.dataset_manager import annotation, views
+from cvat.apps.dataset_manager import views
 import cvat.apps.dataset_manager.task as DatumaroTask
 from cvat.apps.engine.models import Task as TaskModel
 from cvat.apps.engine.log import slogger
