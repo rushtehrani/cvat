@@ -54,7 +54,21 @@ interface State {
     updatingModel: boolean;
 }
 
+interface CreateAnnotationSubmitData {
+    project_uid: string;
+    machine_type: string;
+    arguments: string;
+    ref_model: string;
+    dump_format: string;
+    base_url: string;
+    base_model: string;
+}
+
 const core = getCore();
+
+const models = getModelNames();
+
+const machines = getMachineNames();
 
 const InitialState = {
     isLoading: true,
@@ -163,7 +177,58 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         if (sysFinetuneCheckpoint && workflowTemplateUid) {
             await updateSysFinetuneCheckpoint(sysFinetuneCheckpoint, workflowTemplateUid, value);
         }
+    }
+
+    /**
+     * Loads base model data from the API and updates the allSysFinetuneCheckpoint options.
+     * If nothing is passed in, the default/initial values are set.
+     *
+     * @param sysFinetuneCheckpoint
+     * @param workflowTemplateUid
+     * @param sysRefModel
+     * @private
+     */
+    private async updateSysFinetuneCheckpoint(sysFinetuneCheckpoint: any, workflowTemplateUid: string, sysRefModel?: string) {
+        this.setState({
+            updatingModel: true,
+        });
+        const { keys } = await OnepanelApi.getBaseModel(workflowTemplateUid, sysRefModel);
+
+        this.setState({
+            allSysFinetuneCheckpoint: {
+                options: keys,
+                hint: sysFinetuneCheckpoint.hint,
+                display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name,
+            },
+            updatingModel: false,
+        });
+    }
+
+    private showErrorNotification = (error: any): void => {
+        notification.error({
+            message: 'Execute Workflow failed.',
+            description: `Execute workflow failed (Error code: ${error.code}). Please try again later`,
+            duration: 5,
+        });
     };
+
+    private async handleSubmit(): Promise<void> {
+        const {
+            taskInstance,
+            closeDialog,
+        } = this.props;
+
+        const {
+            shapes,
+            tracks,
+        } = await OnepanelApi.getObjectCounts(taskInstance.id);
+
+        if (tracks.length) {
+            return this.onExecuteWorkflow();
+        }
+
+        this.onSubmitNotifications(shapes.length);
+    }
 
     private onSubmitNotifications(count: number): void {
         const {

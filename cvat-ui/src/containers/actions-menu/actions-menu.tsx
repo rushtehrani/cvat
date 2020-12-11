@@ -10,6 +10,7 @@ import { CombinedState } from 'reducers/interfaces';
 
 import { modelsActions } from 'actions/models-actions';
 import { dumpAnnotationsAsync, loadAnnotationsAsync, exportDatasetAsync, deleteTaskAsync } from 'actions/tasks-actions';
+import { getWorkflowTemplateAsync } from 'onepanelio/createAnnotationModal/createAnnotation.action';
 import { ClickParam } from 'antd/lib/menu';
 
 interface OwnProps {
@@ -30,6 +31,7 @@ interface DispatchToProps {
     exportDataset: (taskInstance: any, exporter: any) => void;
     deleteTask: (taskInstance: any) => void;
     openRunModelWindow: (taskInstance: any) => void;
+    openNewAnnotationModel: (taskInstance: any) => void;
 }
 
 function mapStateToProps(state: CombinedState, own: OwnProps): StateToProps {
@@ -70,6 +72,9 @@ function mapDispatchToProps(dispatch: any): DispatchToProps {
         openRunModelWindow: (taskInstance: any): void => {
             dispatch(modelsActions.showRunModelDialog(taskInstance));
         },
+        openNewAnnotationModel: (taskInstance: any): void => {
+            dispatch(getWorkflowTemplateAsync(taskInstance));
+        },
     };
 }
 
@@ -87,6 +92,7 @@ function ActionsMenuContainer(props: OwnProps & StateToProps & DispatchToProps):
         exportDataset,
         deleteTask,
         openRunModelWindow,
+        openNewAnnotationModel,
     } = props;
 
     function onClickMenu(params: ClickParam, file?: File): void {
@@ -120,6 +126,8 @@ function ActionsMenuContainer(props: OwnProps & StateToProps & DispatchToProps):
                 window.open(`${taskInstance.bugTracker}`, '_blank');
             } else if (action === Actions.RUN_AUTO_ANNOTATION) {
                 openRunModelWindow(taskInstance);
+            } else if (action === Actions.OPEN_NEW_ANNOTATION) {
+                openNewAnnotationModel(taskInstance);
             }
         }
     }

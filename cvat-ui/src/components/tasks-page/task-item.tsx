@@ -127,6 +127,47 @@ class TaskItemComponent extends React.PureComponent<TaskItemProps & RouteCompone
                         />
                     </Col>
                 </Row>
+                { activeInference &&
+                    (
+                        <>
+                            <Row>
+                                <Col>
+                                    <Text strong>Automatic annotation</Text>
+                                </Col>
+                            </Row>
+                            <Row type='flex' justify='space-between'>
+                                <Col span={22}>
+                                    <Progress
+                                        percent={Math.floor(activeInference.progress)}
+                                        strokeColor={{
+                                            from: '#108ee9',
+                                            to: '#87d068',
+                                        }}
+                                        showInfo={false}
+                                        strokeWidth={5}
+                                        size='small'
+                                    />
+                                </Col>
+                                <Col span={1} className='close-auto-annotation-icon'>
+                                    <Tooltip title='Cancel automatic annotation'>
+                                        <Icon
+                                            type='close'
+                                            onClick={() => {
+                                                Modal.confirm({
+                                                    title: 'You are going to cancel automatic annotation?',
+                                                    content: 'Reached progress will be lost. Continue?',
+                                                    okType: 'danger',
+                                                    onOk() {
+                                                        cancelAutoAnnotation();
+                                                    },
+                                                });
+                                            }}
+                                        />
+                                    </Tooltip>
+                                </Col>
+                            </Row>
+                        </>
+                    )}
                 <AutomaticAnnotationProgress
                     activeInference={activeInference}
                     cancelAutoAnnotation={cancelAutoAnnotation}

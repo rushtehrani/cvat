@@ -7,6 +7,7 @@ import { Row, Col } from 'antd/lib/grid';
 import Pagination from 'antd/lib/pagination';
 
 import ModelRunnerModal from 'components/model-runner-modal/model-runner-dialog';
+import ModelNewAnnotationModalContainer from 'onepanelio/createAnnotationModal/createAnnotation.container';
 import TaskItem from 'containers/tasks-page/task-item';
 
 export interface ContentListProps {
@@ -40,6 +41,7 @@ export default function TaskListComponent(props: ContentListProps): JSX.Element 
                 </Col>
             </Row>
             <ModelRunnerModal />
+            <ModelNewAnnotationModalContainer />
         </>
     );
 }
