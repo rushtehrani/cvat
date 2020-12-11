@@ -4,14 +4,16 @@
 
 from __future__ import print_function
 
-import os
+import os, json
 import tempfile
 from django.http import JsonResponse
+from django.http import HttpResponse, HttpResponseNotFound
 from rest_framework.response import Response
 
 import cvat.apps.dataset_manager as dm
+from cvat.apps.authentication.decorators import login_required
 from cvat.apps.onepanelio.models import OnepanelAuth
-from cvat.apps.dataset_manager import views
+from cvat.apps.dataset_manager import annotation, views
 import cvat.apps.dataset_manager.task as DatumaroTask
 from cvat.apps.engine.models import Task as TaskModel
 from cvat.apps.engine.log import slogger
@@ -76,7 +78,7 @@ def get_available_dump_formats(request):
     data = dm.views.get_export_formats()
     formats = []
     for d in data:
-        formats.append({'name':d['name'], 'tag':d['tag']})
+        formats.append({'name':d.NAME, 'tag':d.DISPLAY_NAME})
     return JsonResponse({'dump_formats': formats})
 
 @api_view(['POST'])
@@ -176,7 +178,7 @@ def dump_training_data(uid, dump_format, cloud_prefix, request):
     bucket_name, cloud_provider, endpoint = authenticate_cloud_storage()
 
     data = dm.views.get_export_formats()
-    formats = {d['name']:d['tag'] for d in data}
+    formats = {d.NAME:d.DISPLAY_NAME for d in data}
     if dump_format not in formats.values():
         dump_format = "cvat_tfrecord"
 

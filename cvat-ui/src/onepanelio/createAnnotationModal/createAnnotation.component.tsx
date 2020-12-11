@@ -10,6 +10,7 @@ import {
 } from 'antd';
 
 import getCore from 'cvat-core-wrapper';
+import { getMachineNames, getModelNames } from './createAnnotation.constant';
 import {
     DefaultSysParams,
     DumpFormats,
