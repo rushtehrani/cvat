@@ -306,6 +306,8 @@ for frame_results in detections:
 			contours = find_contours(mask_frame, mask_probability_threshold)
 			# every bounding box should only have a single contour
 			contour = contours[0]
+            if not contours:
+                continue
 			contour = np.flip(contour, axis=1)
 
 			# reduce the precision on the polygon

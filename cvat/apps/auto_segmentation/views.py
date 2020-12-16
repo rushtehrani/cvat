@@ -55,6 +55,8 @@ def run_tensorflow_auto_segmentation(image_list, labels_mapping, treshold, model
 
 	def _convert_to_segmentation(mask):
 		contours = find_contours(mask, 0.5)
+		if not contours:
+			return []
 		# only one contour exist in our case
 		contour = contours[0]
 		contour = np.flip(contour, axis=1)
