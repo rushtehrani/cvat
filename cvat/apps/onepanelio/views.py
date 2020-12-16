@@ -208,6 +208,8 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
             
             import boto3
             from botocore.exceptions import ClientError
+            from botocore.client import Config
+            from s3transfer import TransferConfig, S3Transfer
 
             if endpoint != 's3.amazonaws.com':
                 if not endpoint.startswith('http'):
@@ -215,7 +217,14 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
                 s3_client = boto3.client('s3', endpoint_url=endpoint)
             else:
                 s3_client = boto3.client('s3')
-          
+
+            transfer_config = TransferConfig(
+                multipart_threshold=9999999999999999,
+                max_concurrency=10,
+                num_download_attempts=10,
+            )
+            transfer = S3Transfer(s3_client, transfer_config)
+
             for root,dirs,files in os.walk(test_dir):
                 for file in files:
                     upload_dir = root.replace(test_dir, "")
@@ -223,8 +232,11 @@ def dump_training_data(uid, db_task, stamp, dump_format, cloud_prefix, request):
                         upload_dir = upload_dir[1:]
                     if not cloud_prefix.endswith("/"):
                         cloud_prefix += "/"
-                    s3_client.upload_file(os.path.join(root,file),bucket_name,os.path.join(os.getenv('ONEPANEL_RESOURCE_NAMESPACE')+'/'+cloud_prefix, upload_dir, file))
-          
+                    root_file = os.path.join(root, file)
+                    ns_cloud_prefix = os.path.join(os.getenv('ONEPANEL_RESOURCE_NAMESPACE') + '/' + cloud_prefix, upload_dir, file)
+                    slogger.glob.info("upload_file_debug {} {}".format(root_file, bucket_name,ns_cloud_prefix))
+                    transfer.upload_file(root_file, bucket_name, ns_cloud_prefix)
+
         elif cloud_provider == "gcs":
             from google.cloud import storage
             storage_client = storage.Client()
