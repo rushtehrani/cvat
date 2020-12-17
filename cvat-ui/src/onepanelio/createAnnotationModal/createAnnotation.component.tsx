@@ -180,31 +180,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         }
     }
 
-    /**
-     * Loads base model data from the API and updates the allSysFinetuneCheckpoint options.
-     * If nothing is passed in, the default/initial values are set.
-     *
-     * @param sysFinetuneCheckpoint
-     * @param workflowTemplateUid
-     * @param sysRefModel
-     * @private
-     */
-    private async updateSysFinetuneCheckpoint(sysFinetuneCheckpoint: any, workflowTemplateUid: string, sysRefModel?: string) {
-        this.setState({
-            updatingModel: true,
-        });
-        const { keys } = await OnepanelApi.getBaseModel(workflowTemplateUid, sysRefModel);
-
-        this.setState({
-            allSysFinetuneCheckpoint: {
-                options: keys,
-                hint: sysFinetuneCheckpoint.hint,
-                display_name: sysFinetuneCheckpoint.display_name ? sysFinetuneCheckpoint.display_name : sysFinetuneCheckpoint.name,
-            },
-            updatingModel: false,
-        });
-    }
-
     private showErrorNotification = (error: any): void => {
         notification.error({
             message: 'Execute Workflow failed.',
@@ -359,31 +334,6 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             });
         }
     }
-
-    private handleSubmit = async (): Promise<void> => {
-        const {
-            taskInstance: { id },
-        } = this.props;
-
-        const {
-            shapes,
-            tracks,
-        } = await onepanelApi.getObjectCounts(id);
-
-        if (tracks.length) {
-            return this.onExecuteWorkflow();
-        }
-
-        return this.onSubmitNotifications(shapes.length);
-    };
-
-    private showErrorNotification = (error: any): void => {
-        notification.error({
-            message: 'Execute Workflow failed.',
-            description: `Execute workflow failed (Error code: ${error.code}). Please try again later`,
-            duration: 5,
-        });
-    };
 
     /**
      * Loads base model data from the API and updates the allSysFinetuneCheckpoint options.
