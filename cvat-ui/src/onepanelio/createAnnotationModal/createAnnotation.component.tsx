@@ -132,7 +132,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         this.state = InitialState;
     }
 
-    public componentDidUpdate(prevProps: Props): void {
+    public componentDidUpdate(prevProps: Props, prevState: State): void {
         const {
             visible,
         } = this.props;
@@ -197,7 +197,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         const {
             shapes,
             tracks,
-        } = await OnepanelApi.getObjectCounts(taskInstance.id);
+        } = await onepanelApi.getObjectCounts(taskInstance.id);
 
         if (tracks.length) {
             return this.onExecuteWorkflow();
@@ -349,7 +349,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
         this.setState({
             updatingModel: true,
         });
-        const keys = await onepanelApi.getBaseModel(workflowTemplateUid, sysRefModel);
+        const {keys} = await onepanelApi.getBaseModel(workflowTemplateUid, sysRefModel);
 
         this.setState({
             allSysFinetuneCheckpoint: {
@@ -385,10 +385,12 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             gettingParameters: true,
         });
 
+        let nodePool, nodePoolResponse;
         try {
-            const { parameters } = await onepanelApi.getWorkflowParameters(data);
+            const {parameters} = await onepanelApi.getWorkflowParameters(data);
 
-            let workflowParamsArr = parameters; let
+            let workflowParamsArr = parameters;
+            let
                 workflowParamNameValue = {};
             const sysNodePoolParam = parameters.find((param: WorkflowParameters) => param.name === 'sys-node-pool');
             const sysFinetuneCheckpoint = parameters.find((param: WorkflowParameters) => param.name === 'cvat-finetune-checkpoint');
@@ -397,7 +399,9 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             const sysAnnotationPath = parameters.find((param: WorkflowParameters) => param.name === 'cvat-annotation-path');
 
             if (sysNodePoolParam) {
-                const { nodePool } = await onepanelApi.getNodePool();
+                nodePoolResponse = await onepanelApi.getNodePool();
+                nodePool = nodePoolResponse.node_pool;
+
                 this.setState({
                     allSysNodePools: {
                         ...nodePool,
@@ -472,22 +476,22 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
                 return false;
             });
 
-            const { dumpFormats } = await onepanelApi.getAvailableDumpFormats();
+            const dumpFormats = await onepanelApi.getAvailableDumpFormats();
 
             const dumpFormat = parameters.find((param: WorkflowParameters) => param.name === 'dump-format');
             if (!dumpFormat || !dumpFormat.value) {
                 this.setState({
-                    allDumpFormats: dumpFormats,
+                    allDumpFormats: dumpFormats.dump_formats,
                 });
             } else {
-                const dumpFormatInParams = dumpFormats.find((dump: DumpFormats) => dump.tag === dumpFormat.value);
+                const dumpFormatInParams = dumpFormats.dump_formats.find((dump: DumpFormats) => dump.tag === dumpFormat.value);
                 if (dumpFormatInParams) {
                     this.setState({
                         selectedDumpFormat: dumpFormatInParams,
                     });
                 } else {
                     this.setState({
-                        allDumpFormats: dumpFormats,
+                        allDumpFormats: dumpFormats.dump_formats,
                         showDumpFormatHint: true,
                     });
                 }
@@ -496,7 +500,7 @@ export default class ModelNewAnnotationModalComponent extends React.PureComponen
             this.setState({
                 gettingParameters: false,
                 allWorkflowParameters: workflowParamsArr,
-                selectedWorkflowParam: { ...workflowParamNameValue },
+                selectedWorkflowParam: {...workflowParamNameValue},
             });
         } catch (error) {
             this.showErrorNotification(error);

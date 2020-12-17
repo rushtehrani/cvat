@@ -3,7 +3,7 @@ import {
     DumpFormats,
     NodePoolResponse,
     WorkflowParameters,
-    WorkflowTemplates
+    WorkflowTemplates,
 } from '../createAnnotationModal/interfaces';
 
 const core = getCore();

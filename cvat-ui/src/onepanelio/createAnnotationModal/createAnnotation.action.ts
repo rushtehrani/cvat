@@ -46,7 +46,7 @@ export const createAnnotationAction = {
 };
 
 export function getBaseModelsAsync(taskInstance: any, modelType: string) : ThunkAction {
-    return async (dispatch): Promise<void> => {
+    return async(dispatch, getState): Promise<void> => {
         try {
             const { keys } = await core.server.request(
                 `${baseURL}/onepanelio/get_base_model`, {
@@ -66,7 +66,7 @@ export function getBaseModelsAsync(taskInstance: any, modelType: string) : Thunk
 }
 
 export function getWorkflowTemplateAsync(taskInstance: any) : ThunkAction {
-    return async (dispatch): Promise<void> => {
+    return async(dispatch, getState): Promise<void> => {
         try {
             dispatch(createAnnotationAction.openNewAnnotationDialog(taskInstance));
             const response = await core.server.request(
